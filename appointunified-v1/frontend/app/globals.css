@@ -1,0 +1,196 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Multi-Pastel Premium Theme */
+    --bg-primary: #FAFCFD; /* Pristine pearl / off-white */
+    --bg-secondary: #FFFFFF;
+    --bg-elevated: #F0F4F8;
+    --bg-subtle: #F7F9FB; 
+    
+    /* Borders */
+    --border: #E2E8F0;
+    --border-focus: #CBD5E1;
+    --border-card: #F1F5F9;
+    
+    /* Typography */
+    --text-primary: #0F172A; /* Deepest sophisticated slate */
+    --text-secondary: #475569; 
+    --text-muted: #94A3B8;
+    --text-on-dark: #FFFFFF;
+    
+    /* Core Accents (Slightly grounded for text contrast) */
+    --accent: #6C8EBF; /* Grounded pastel blue */
+    --accent-light: #9BBDE5; 
+    --accent-glow: #D5E6F7; 
+    
+    /* Full Pastel Spectrum (For highlights, orbs, backgrounds) */
+    --pastel-purple: #D4C4FB;
+    --pastel-pink: #FFCADA;
+    --pastel-mint: #B5EAD7;
+    --pastel-peach: #FFDAC1;
+    --pastel-yellow: #FFF1A0;
+    
+    /* Shadows - Neutral, airy, high-end */
+    --shadow-soft: 0 8px 30px rgba(15, 23, 42, 0.04);
+    --shadow-float: 0 20px 40px rgba(15, 23, 42, 0.08);
+  }
+
+  * { @apply border-border; }
+  html { scroll-behavior: smooth; }
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+  /* Pastel Glass Card */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: var(--shadow-soft);
+    border-radius: 1.5rem;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .glass-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-float);
+    background: rgba(255, 255, 255, 0.9);
+  }
+
+  /* Pastel Input Focus */
+  .input-pastel {
+    @apply block w-full rounded-2xl bg-white px-5 py-3.5 text-sm outline-none transition-all duration-300 shadow-sm border border-border;
+  }
+  .input-pastel:focus {
+    border-color: var(--accent-light);
+    box-shadow: 0 0 0 4px var(--accent-glow);
+  }
+
+  /* Buttons */
+  .btn-pastel {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3 font-semibold transition-all duration-300;
+  }
+  .btn-pastel-primary {
+    @apply btn-pastel text-white hover:-translate-y-1;
+    box-shadow: var(--shadow-soft);
+    background: linear-gradient(135deg, var(--text-primary) 0%, #334155 100%); /* Minimalist stark contrast */
+  }
+  .btn-pastel-primary:hover {
+    box-shadow: var(--shadow-float);
+    transform: translateY(-2px);
+  }
+  .btn-pastel-secondary {
+    @apply btn-pastel text-text-primary border border-border bg-white/50 backdrop-blur hover:bg-white hover:-translate-y-1;
+    box-shadow: var(--shadow-soft);
+  }
+  .btn-pastel-secondary:hover {
+    box-shadow: var(--shadow-float);
+    border-color: var(--accent-light);
+  }
+
+  /* Premium Physics iOS Switch */
+  .ios-toggle {
+    @apply relative h-7 w-12 rounded-full cursor-pointer transition-colors shadow-inner flex-shrink-0;
+    transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .ios-toggle-thumb {
+    @apply absolute top-[3px] left-[3px] h-[22px] w-[22px] rounded-full bg-white shadow-sm;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .ios-toggle.enabled { @apply bg-text-primary; }
+  .ios-toggle.disabled { @apply bg-border; }
+  .ios-toggle.enabled .ios-toggle-thumb { transform: translateX(20px); }
+
+
+  /* ─── LEGACY COMPONENT ALIASES (Global Fix) ─── */
+  .container-page {
+    @apply mx-auto max-w-6xl px-4 sm:px-6 w-full;
+  }
+  
+  .card {
+    @apply bg-white/60 backdrop-blur-xl border border-white rounded-3xl transition-all duration-500;
+    box-shadow: var(--shadow-soft);
+  }
+  .card:hover {
+    box-shadow: var(--shadow-float);
+    @apply bg-white/95;
+    transform: translateY(-2px);
+  }
+  
+  .input {
+    @apply block w-full rounded-2xl bg-white/80 px-5 py-3.5 text-sm text-text-primary placeholder:text-slate-400 outline-none transition-all duration-300 border border-border backdrop-blur-md;
+  }
+  .input:focus {
+    @apply bg-white;
+    border-color: var(--pastel-purple);
+    box-shadow: 0 0 0 4px rgba(212, 196, 251, 0.3); /* Soft purple glow */
+  }
+  
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3 font-semibold transition-all duration-300 cursor-pointer;
+  }
+  .btn-primary {
+    @apply btn text-white hover:-translate-y-1;
+    box-shadow: var(--shadow-soft);
+    background: var(--text-primary);
+  }
+  .btn-primary:focus {
+    box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.15);
+  }
+  .btn-primary:hover {
+    box-shadow: var(--shadow-float);
+    transform: translateY(-2px);
+  }
+  .btn-secondary {
+    @apply btn text-text-primary border border-border bg-white/60 backdrop-blur hover:bg-white hover:-translate-y-1;
+    box-shadow: var(--shadow-soft);
+  }
+  .btn-secondary:hover {
+    box-shadow: var(--shadow-float);
+    border-color: var(--border-focus);
+  }
+  .btn-ghost {
+    @apply btn text-text-secondary hover:bg-elevated hover:text-text-primary;
+  }
+  
+  .badge {
+    @apply inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-xs font-bold leading-none border border-transparent;
+  }
+  .badge-primary {
+    @apply bg-accent-glow text-accent border-accent-light/30;
+  }
+  .badge-success {
+    @apply bg-pastel-mint text-emerald-800 border-pastel-mint;
+  }
+  .badge-warning {
+    @apply bg-pastel-peach text-orange-800 border-pastel-peach;
+  }
+  .section-title {
+    @apply text-2xl font-bold text-text-primary tracking-tight;
+  }
+  
+  .label {
+    @apply block text-sm font-bold text-text-primary mb-2;
+  }
+  .error-text {
+    @apply text-pastel-pink text-xs font-bold mt-1.5; /* Using pastel pink but needs text contrast! Let's map to red-500 */
+    color: #ef4444;
+  }
+  .input-error {
+    @apply border-red-300 focus:border-red-400 shadow-sm;
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1);
+  }
+}
+
+/* Custom minimal scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--border-focus); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }

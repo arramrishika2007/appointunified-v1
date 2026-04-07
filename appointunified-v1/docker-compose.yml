@@ -1,0 +1,100 @@
+# ─────────────────────────────────────────────────────────────
+#  AppointUnified V1 — Local Development Stack
+#  Usage: docker compose up -d
+# ─────────────────────────────────────────────────────────────
+
+services:
+
+  # ── PostgreSQL (mirrors Neon schema) ──────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: au_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: appointunified
+      POSTGRES_USER: au_user
+      POSTGRES_PASSWORD: au_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U au_user -d appointunified"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── MailHog (local email testing) ─────────────────────────
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: au_mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI → http://localhost:8025
+
+  # ── Spring Boot Backend ───────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: au_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NEON_DATABASE_URL: ${NEON_DATABASE_URL:-jdbc:postgresql://postgres:5432/appointunified?user=au_user&password=au_password}
+      JWT_SECRET: ${JWT_SECRET:-local-dev-secret-key-must-be-at-least-64-characters-long-for-hs512-algorithm}
+      JWT_EXPIRY_MS: ${JWT_EXPIRY_MS:-86400000}
+      JWT_REFRESH_EXPIRY_MS: ${JWT_REFRESH_EXPIRY_MS:-604800000}
+      FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS:-e30=}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-local-dev}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-local-dev-not-used}
+      CLOUDINARY_URL: ${CLOUDINARY_URL:-cloudinary://local:local@local}
+      CLOUDINARY_UPLOAD_PRESET: ${CLOUDINARY_UPLOAD_PRESET:-appointunified_docs}
+      CLOUDINARY_MAX_FILE_SIZE_MB: ${CLOUDINARY_MAX_FILE_SIZE_MB:-2}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8080}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-mailhog}
+      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-1025}
+      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-apikey}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH:-false}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE:-false}
+      MAIL_FROM: ${MAIL_FROM:-noreply@appointunified.com}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-AppointUnified}
+      REDIS_URL: ${REDIS_URL:-}
+      UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL:-}
+      UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-noreply@yourhospital.com}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ── Next.js Frontend ──────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: au_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080/api}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:
