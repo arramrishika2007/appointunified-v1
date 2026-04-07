@@ -94,4 +94,33 @@ public class ProfessionalController {
         return ResponseEntity.ok(ApiResponse.ok(
                 professionalService.getAvailableSlots(id, date, serviceId)));
     }
+
+    @PatchMapping("/{id}/overbooking")
+    @PreAuthorize("hasRole('PROFESSIONAL')")
+    @Operation(summary = "Toggle smart overbooking for own profile")
+    public ResponseEntity<ApiResponse<ProfessionalResponse.Summary>> updateOverbooking(
+            @AuthenticationPrincipal UUID userId,
+            @PathVariable UUID id,
+            @RequestBody OverbookingRequest request) {
+        boolean enabled = request != null && request.getAllowOverbooking() != null && request.getAllowOverbooking();
+        return ResponseEntity.ok(ApiResponse.ok(professionalService.updateOverbooking(userId, id, enabled)));
+    }
+
+    @PatchMapping("/me/overbooking")
+    @PreAuthorize("hasRole('PROFESSIONAL')")
+    @Operation(summary = "Toggle smart overbooking for own profile (me)")
+    public ResponseEntity<ApiResponse<ProfessionalResponse.Summary>> updateMyOverbooking(
+            @AuthenticationPrincipal UUID userId,
+            @RequestBody OverbookingRequest request) {
+        ProfessionalResponse.Detail me = professionalService.getMyProfile(userId);
+        boolean enabled = request != null && request.getAllowOverbooking() != null && request.getAllowOverbooking();
+        return ResponseEntity.ok(ApiResponse.ok(professionalService.updateOverbooking(userId, me.getId(), enabled)));
+    }
+
+    public static class OverbookingRequest {
+        private Boolean allowOverbooking;
+
+        public Boolean getAllowOverbooking() { return allowOverbooking; }
+        public void setAllowOverbooking(Boolean allowOverbooking) { this.allowOverbooking = allowOverbooking; }
+    }
 }

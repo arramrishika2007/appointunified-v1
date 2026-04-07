@@ -58,6 +58,9 @@ public class Professional {
     @Column(name = "avatar_url")
     private String avatarUrl;
 
+    @Column(name = "upi_id", length = 100)
+    private String upiId;
+
     @Column(name = "cover_url")
     private String coverUrl;
 
@@ -90,6 +93,9 @@ public class Professional {
 
     @Column(name = "is_accepting_bookings", nullable = false)
     private boolean acceptingBookings = true;
+
+    @Column(name = "allow_overbooking", nullable = false)
+    private boolean allowOverbooking = false;
 
     // ─── NEW V1 FEATURE 2: Provider Mood / Live Status ─────────────────────
     @Enumerated(EnumType.STRING)
@@ -163,6 +169,8 @@ public class Professional {
     public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
     public String getCoverUrl() { return coverUrl; }
     public void setCoverUrl(String coverUrl) { this.coverUrl = coverUrl; }
+    public String getUpiId() { return upiId; }
+    public void setUpiId(String upiId) { this.upiId = upiId; }
     public String getBio() { return bio; }
     public void setBio(String bio) { this.bio = bio; }
     public String getQualification() { return qualification; }
@@ -183,6 +191,8 @@ public class Professional {
     public void setAddress(String address) { this.address = address; }
     public boolean isAcceptingBookings() { return acceptingBookings; }
     public void setAcceptingBookings(boolean acceptingBookings) { this.acceptingBookings = acceptingBookings; }
+    public boolean isAllowOverbooking() { return allowOverbooking; }
+    public void setAllowOverbooking(boolean allowOverbooking) { this.allowOverbooking = allowOverbooking; }
     public AvailabilityMood getAvailabilityMood() { return availabilityMood; }
     public void setAvailabilityMood(AvailabilityMood availabilityMood) { this.availabilityMood = availabilityMood; }
     public String getMoodNote() { return moodNote; }

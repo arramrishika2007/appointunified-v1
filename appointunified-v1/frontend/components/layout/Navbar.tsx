@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter, usePathname } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { Menu, X, Activity } from 'lucide-react'
 import { useAuthStore } from '@/lib/store'
@@ -10,7 +10,6 @@ import { cn } from '@/lib/utils'
 export function Navbar() {
   const { isAuthenticated, logout, user } = useAuthStore()
   const pathname = usePathname()
-  const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
 
@@ -25,6 +24,19 @@ export function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
+  useEffect(() => {
+    // Close mobile menu when route changes.
+    setMenuOpen(false)
+  }, [pathname])
+
+  useEffect(() => {
+    // Prevent background scroll when mobile menu is open.
+    document.body.style.overflow = menuOpen ? 'hidden' : ''
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [menuOpen])
+
   const navLinks = [
     { href: '/explore/healthcare', label: 'Healthcare' },
     { href: '/explore/government', label: 'Government' },
@@ -34,11 +46,12 @@ export function Navbar() {
   const showExploreLinks = !isAuthenticated || user?.role === 'PUBLIC'
 
   return (
-    <nav className={cn(
-      "fixed top-0 w-full z-50 transition-all duration-500",
-      scrolled ? "bg-white/70 backdrop-blur-xl border-b border-white shadow-soft py-3" : "bg-transparent py-5"
-    )}>
-      <div className="max-w-6xl mx-auto px-6 w-full flex items-center justify-between">
+    <>
+      <nav className={cn(
+        "fixed top-0 w-full z-50 transition-all duration-500",
+        scrolled ? "bg-white/70 backdrop-blur-xl border-b border-white shadow-soft py-3" : "bg-transparent py-5"
+      )}>
+        <div className="max-w-6xl mx-auto px-6 w-full flex items-center justify-between">
 
         {/* Minimal Logo */}
         <Link href="/" className="flex items-center gap-3 group">
@@ -103,44 +116,48 @@ export function Navbar() {
           </button>
         </div>
 
-      </div>
+        </div>
 
       {/* Mobile Nav overlay */}
-      {menuOpen && (
-        <div className="md:hidden absolute top-full left-0 w-full p-4 animate-fade-in">
-          <div className="glass-card w-full flex flex-col gap-4 p-6 bg-white/90">
-            {showExploreLinks && navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-lg font-bold text-text-primary hover:text-accent transition-colors"
-                onClick={() => setMenuOpen(false)}
-              >
-                {link.label}
-              </Link>
-            ))}
-            {!isAuthenticated ? (
-              <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-border">
-                <Link href="/auth/login" className="btn-pastel-secondary w-full" onClick={() => setMenuOpen(false)}>Log In</Link>
-                <Link href="/auth/signup" className="btn-pastel-primary w-full" onClick={() => setMenuOpen(false)}>Get Started</Link>
-              </div>
-            ) : (
-              <div className="mt-4 pt-4 border-t border-border flex flex-col gap-3">
-                {!pathname.includes('dashboard') && (
-                  <Link 
-                    href={user?.role === 'PROFESSIONAL' ? '/professional/dashboard' : user?.role === 'SUPER_ADMIN' ? '/super-admin/dashboard' : user?.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard'} 
-                    className="btn-pastel-primary w-full" 
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Go to Dashboard
-                  </Link>
-                )}
-                <button onClick={() => { handleLogout(); setMenuOpen(false); }} className="btn-pastel-secondary w-full">Log Out</button>
-              </div>
-            )}
+        {menuOpen && (
+          <div className="md:hidden absolute top-full left-0 w-full p-4 animate-fade-in">
+            <div className="glass-card w-full flex flex-col gap-4 p-6 bg-white/90">
+              {showExploreLinks && navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-lg font-bold text-text-primary hover:text-accent transition-colors"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              ))}
+              {!isAuthenticated ? (
+                <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-border">
+                  <Link href="/auth/login" className="btn-pastel-secondary w-full" onClick={() => setMenuOpen(false)}>Log In</Link>
+                  <Link href="/auth/signup" className="btn-pastel-primary w-full" onClick={() => setMenuOpen(false)}>Get Started</Link>
+                </div>
+              ) : (
+                <div className="mt-4 pt-4 border-t border-border flex flex-col gap-3">
+                  {!pathname.includes('dashboard') && (
+                    <Link 
+                      href={user?.role === 'PROFESSIONAL' ? '/professional/dashboard' : user?.role === 'SUPER_ADMIN' ? '/super-admin/dashboard' : user?.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard'} 
+                      className="btn-pastel-primary w-full" 
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Go to Dashboard
+                    </Link>
+                  )}
+                  <button onClick={() => { handleLogout(); setMenuOpen(false); }} className="btn-pastel-secondary w-full">Log Out</button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
-    </nav>
+        )}
+      </nav>
+
+      {/* Reserve vertical space for fixed navbar to prevent top-content overlap. */}
+      <div className="h-20 sm:h-24" aria-hidden="true" />
+    </>
   )
 }

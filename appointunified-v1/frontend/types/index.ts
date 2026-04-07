@@ -42,6 +42,7 @@ export interface ProfessionalSummary {
   consultationFee?: number
   city?: string
   acceptingBookings: boolean
+  allowOverbooking?: boolean
   // V1 Feature 2: Mood
   availabilityMood?: AvailabilityMood
   moodNote?: string
@@ -75,12 +76,41 @@ export interface ProfessionalDetail extends ProfessionalSummary {
   coverUrl?: string
   licenseNumber?: string
   latitude?: number
-  longitude?: number
+  virtual: boolean
+  meetingToken?: string
+  depositStatus?: 'PENDING' | 'CONFIRMED' | 'DISPUTED' | 'REFUNDED'
+  finalPaymentStatus?: 'PENDING' | 'CONFIRMED' | 'DISPUTED' | 'REFUNDED'
+  totalAmount?: number
   address?: string
   totalCompleted: number
   services: ServiceSummary[]
   weeklySchedule: AvailabilityDay[]
   joinedAt: string
+}
+
+export interface RiskSummary {
+  userId: string
+  score: number
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH'
+  totalCancellations: number
+  lastMinuteCancellations: number
+  noShows: number
+  completions: number
+  lastCalculatedAt: string
+}
+
+export interface WaitlistSummary {
+  id: string
+  professionalId: string
+  professionalName: string
+  serviceId?: string
+  serviceName?: string
+  notified: boolean
+  notifiedAt?: string
+  preferredTimeFrom?: string
+  preferredTimeTo?: string
+  createdAt: string
+  expiresAt?: string
 }
 
 // ─── Appointments ─────────────────────────────────────────────────────────────

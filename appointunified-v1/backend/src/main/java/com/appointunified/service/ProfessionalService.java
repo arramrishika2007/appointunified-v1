@@ -3,6 +3,7 @@ package com.appointunified.service;
 import com.appointunified.dto.request.ProfessionalRequest;
 import com.appointunified.dto.response.AppointmentResponse;
 import com.appointunified.dto.response.ProfessionalResponse;
+import com.appointunified.dto.response.ServiceResponse;
 import com.appointunified.entity.Availability;
 import com.appointunified.entity.Professional;
 import com.appointunified.entity.User;
@@ -87,8 +88,20 @@ public class ProfessionalService {
         professional.setConsultationFee(request.getConsultationFee());
         professional.setCity(normalizeOptionalText(request.getCity()));
         professional.setAddress(normalizeOptionalText(request.getAddress()));
-        professional.setLatitude(request.getLatitude());
-        professional.setLongitude(request.getLongitude());
+        professional.setUpiId(normalizeOptionalText(request.getUpiId()));
+        
+        // Use provided lat/lon, or fallback to Geocoding
+        if (request.getLatitude() != null && request.getLongitude() != null) {
+            professional.setLatitude(request.getLatitude());
+            professional.setLongitude(request.getLongitude());
+        } else if (professional.getAddress() != null) {
+            double[] coords = geocodeAddress(professional.getAddress() + ", " + professional.getCity());
+            if (coords != null) {
+                professional.setLatitude(java.math.BigDecimal.valueOf(coords[0]));
+                professional.setLongitude(java.math.BigDecimal.valueOf(coords[1]));
+            }
+        }
+        
         professional.setServiceAreaRadiusKm(request.getServiceAreaRadiusKm());
         professional.setVerificationStatus(VerificationStatus.PENDING); // Require admin approval
         professional.setAcceptingBookings(false); // Do not accept bookings until approved 
@@ -150,8 +163,32 @@ public class ProfessionalService {
         if (request.getAvatarUrl() != null) professional.setAvatarUrl(request.getAvatarUrl());
         if (request.getCoverUrl() != null) professional.setCoverUrl(request.getCoverUrl());
         if (request.getAcceptingBookings() != null) professional.setAcceptingBookings(request.getAcceptingBookings());
+        if (request.getUpiId() != null) professional.setUpiId(request.getUpiId());
+
+        // Geocoding on update
+        if (request.getAddress() != null && (request.getLatitude() == null || request.getLongitude() == null)) {
+            double[] coords = geocodeAddress(professional.getAddress() + ", " + professional.getCity());
+            if (coords != null) {
+                professional.setLatitude(java.math.BigDecimal.valueOf(coords[0]));
+                professional.setLongitude(java.math.BigDecimal.valueOf(coords[1]));
+            }
+        }
 
         return toDetailResponse(professionalRepository.save(professional));
+    }
+
+    @Transactional
+    public ProfessionalResponse.Summary updateOverbooking(UUID userId, UUID professionalId, boolean allowOverbooking) {
+        Professional professional = professionalRepository.findByUserId(userId)
+                .orElseThrow(() -> AppException.notFound("Professional profile not found"));
+
+        if (!professional.getId().equals(professionalId)) {
+            throw AppException.forbidden("You can only update your own overbooking setting");
+        }
+
+        professional.setAllowOverbooking(allowOverbooking);
+        professional = professionalRepository.save(professional);
+        return toSummaryResponse(professional);
     }
 
     // NEW V1 FEATURE 2: Update mood status
@@ -319,11 +356,14 @@ public class ProfessionalService {
         summary.setAvailabilityMood(p.getAvailabilityMood() != null ? p.getAvailabilityMood().name() : null);
         summary.setMoodNote(p.getMoodNote());
         summary.setBadgeTier(p.getBadgeTier() != null ? p.getBadgeTier().name() : null);
+        summary.setAllowOverbooking(p.isAllowOverbooking());
+        summary.setUpiId(p.getUpiId());
         return summary;
     }
 
     private ProfessionalResponse.Detail toDetailResponse(Professional p) {
         List<Availability> avails = availabilityRepository.findByProfessionalIdAndActiveTrue(p.getId());
+        List<com.appointunified.entity.Service> services = serviceRepository.findByProfessionalIdAndActiveTrue(p.getId());
         String[] days = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
 
         List<ProfessionalResponse.AvailabilityDay> schedule = avails.stream()
@@ -338,6 +378,21 @@ public class ProfessionalService {
                     return day;
                 })
                 .sorted(Comparator.comparing(ProfessionalResponse.AvailabilityDay::getWeekday))
+                .collect(Collectors.toList());
+
+        List<ServiceResponse.Summary> serviceSummaries = services.stream()
+                .map(s -> {
+                    ServiceResponse.Summary summary = new ServiceResponse.Summary();
+                    summary.setId(s.getId());
+                    summary.setName(s.getName());
+                    summary.setDescription(s.getDescription());
+                    summary.setDurationMinutes(s.getDurationMinutes());
+                    summary.setPrice(s.getPrice());
+                    summary.setIsActive(s.isActive());
+                    summary.setRequiresDocuments(s.isRequiresDocuments());
+                    summary.setIsVirtual(s.isVirtual());
+                    return summary;
+                })
                 .collect(Collectors.toList());
 
         ProfessionalResponse.Detail detail = new ProfessionalResponse.Detail();
@@ -364,7 +419,10 @@ public class ProfessionalService {
         detail.setAvailabilityMood(p.getAvailabilityMood() != null ? p.getAvailabilityMood().name() : null);
         detail.setMoodNote(p.getMoodNote());
         detail.setBadgeTier(p.getBadgeTier() != null ? p.getBadgeTier().name() : null);
+        detail.setAllowOverbooking(p.isAllowOverbooking());
+        detail.setUpiId(p.getUpiId());
         detail.setVerificationExpiresAt(p.getVerificationExpiresAt());
+        detail.setServices(serviceSummaries);
         detail.setWeeklySchedule(schedule);
         detail.setJoinedAt(p.getCreatedAt());
         return detail;
@@ -447,5 +505,33 @@ public class ProfessionalService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private double[] geocodeAddress(String address) {
+        try {
+            String url = "https://nominatim.openstreetmap.org/search?q=" +
+                    java.net.URLEncoder.encode(address, java.nio.charset.StandardCharsets.UTF_8) +
+                    "&format=jsonv2&limit=1";
+            
+            org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.set("User-Agent", "AppointUnified-BookingApp/1.0");
+            org.springframework.http.HttpEntity<String> entity = new org.springframework.http.HttpEntity<>(headers);
+            
+            org.springframework.http.ResponseEntity<String> response = restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, entity, String.class);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null && !response.getBody().equals("[]")) {
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(response.getBody());
+                com.fasterxml.jackson.databind.JsonNode firstResult = root.get(0);
+                if (firstResult != null) {
+                    double lat = Double.parseDouble(firstResult.get("lat").asText());
+                    double lon = Double.parseDouble(firstResult.get("lon").asText());
+                    return new double[]{lat, lon};
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Geocoding failed for address: " + address, e);
+        }
+        return null;
     }
 }

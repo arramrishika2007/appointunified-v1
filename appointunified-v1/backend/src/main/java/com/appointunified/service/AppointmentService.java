@@ -33,6 +33,8 @@ public class AppointmentService {
     private final UserRepository userRepository;
     private final BookingDraftRepository bookingDraftRepository;
     private final NotificationService notificationService;
+    private final BehaviorScoringService behaviorScoringService;
+    private final WaitlistService waitlistService;
 
     @Value("${app.frontend.url:http://localhost:3000}")
     private String frontendUrl;
@@ -42,6 +44,10 @@ public class AppointmentService {
     public AppointmentResponse.Summary create(UUID clientId, AppointmentRequest.Create request) {
         User client = userRepository.findById(clientId)
                 .orElseThrow(() -> AppException.notFound("User not found"));
+
+        if (client.isBlockedForUnpaid()) {
+            throw AppException.forbidden("Your account is locked due to unpaid balances. Please clear them to book again.");
+        }
 
         Professional professional = professionalRepository.findById(request.getProfessionalId())
                 .orElseThrow(() -> AppException.notFound("Professional not found"));
@@ -83,10 +89,30 @@ public class AppointmentService {
         appointment.setPriority(priority);
         appointment.setNotes(request.getNotes());
         appointment.setVirtual(request.isVirtual());
+        appointment.setTotalAmount(service.getPrice());
+
+        if (request.isVirtual()) {
+            // Generate a 6-digit meeting token and keep join URL token-based.
+            String token = String.format("%06d", new SecureRandom().nextInt(999999));
+            appointment.setMeetingToken(token);
+            appointment.setMeetLink(frontendUrl + "/meeting/" + token);
+        } else {
+            appointment.setClientLat(request.getClientLat());
+            appointment.setClientLon(request.getClientLon());
+            // Basic Haversine distance if lat/lons exist
+            if (request.getClientLat() != null && request.getClientLon() != null &&
+                professional.getLatitude() != null && professional.getLongitude() != null) {
+                double dist = calculateDistanceMeters(request.getClientLat(), request.getClientLon(),
+                        professional.getLatitude().doubleValue(), professional.getLongitude().doubleValue());
+                appointment.setDistanceMeters((int) dist);
+            }
+        }
+
         appointment.setShareToken(shareToken);
         appointment.setShareExpiresAt(OffsetDateTime.now().plusDays(30));
 
         appointment = appointmentRepository.save(appointment);
+
         log.info("Appointment created: {} for client {} with professional {}",
                 appointment.getId(), clientId, professional.getId());
 
@@ -129,6 +155,8 @@ public class AppointmentService {
 
         appointment = appointmentRepository.save(appointment);
         notificationService.sendCancellationNotification(appointment.getId());
+        behaviorScoringService.registerCancellation(appointment, request.getReason());
+        waitlistService.notifyNextCandidate(appointment);
 
         return toSummaryResponse(appointment);
     }
@@ -177,6 +205,7 @@ public class AppointmentService {
         appointment.setCompletedAt(OffsetDateTime.now());
         professional.setTotalCompleted(professional.getTotalCompleted() + 1);
         professionalRepository.save(professional);
+        behaviorScoringService.registerCompletion(appointment);
 
         return toSummaryResponse(appointmentRepository.save(appointment));
     }
@@ -195,6 +224,53 @@ public class AppointmentService {
         }
 
         appointment.setStatus(AppointmentStatus.NO_SHOW);
+        behaviorScoringService.registerNoShow(appointment);
+        return toSummaryResponse(appointmentRepository.save(appointment));
+    }
+
+    // NEW V1 FEATURE 5: Confirm Deposit Payment
+    @Transactional
+    @CacheEvict(cacheNames = "slotRecommendations", allEntries = true)
+    public AppointmentResponse.Summary confirmDepositAndBook(UUID appointmentId, UUID clientId) {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> AppException.notFound("Appointment not found"));
+
+        if (!appointment.getClient().getId().equals(clientId)) {
+            throw AppException.forbidden("Not your appointment");
+        }
+
+        // Just blindly marks pending as confirmed for MVP
+        if (appointment.getDepositStatus() != com.appointunified.enums.PaymentStatus.CONFIRMED) {
+             appointment.setDepositStatus(com.appointunified.enums.PaymentStatus.CONFIRMED);
+             appointmentRepository.save(appointment);
+        }
+        
+        return toSummaryResponse(appointment);
+    }
+
+    // NEW V1 FEATURE 5: Verify Final Payment (Professional action)
+    @Transactional
+    public AppointmentResponse.Summary verifyFinalPayment(UUID appointmentId, UUID professionalUserId) {
+        Professional professional = professionalRepository.findByUserId(professionalUserId)
+                .orElseThrow(() -> AppException.notFound("Professional not found"));
+
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> AppException.notFound("Appointment not found"));
+
+        if (!appointment.getProfessional().getId().equals(professional.getId())) {
+            throw AppException.forbidden("Not your appointment");
+        }
+
+        appointment.setFinalPaymentStatus(com.appointunified.enums.PaymentStatus.CONFIRMED);
+        
+        // Unblock user if they were blocked due to this payment
+        if (appointment.getClient().isBlockedForUnpaid()) {
+            User client = appointment.getClient();
+            client.setBlockedForUnpaid(false); // simplification: unblocks them entirely for now
+            client.setUnpaidBalance(java.math.BigDecimal.ZERO);
+            userRepository.save(client);
+        }
+
         return toSummaryResponse(appointmentRepository.save(appointment));
     }
 
@@ -224,6 +300,58 @@ public class AppointmentService {
         }
 
         return toSummaryResponse(appointment);
+    }
+
+    @Transactional(readOnly = true)
+    public AppointmentResponse.MeetingJoinInfo validateMeetingToken(String meetingToken) {
+        String normalized = meetingToken == null ? "" : meetingToken.trim().toUpperCase(Locale.ROOT);
+        if (!normalized.matches("^[A-Z0-9]{6,12}$")) {
+            throw AppException.badRequest("Invalid meeting token format");
+        }
+
+        Appointment appointment = appointmentRepository.findFirstByMeetingTokenIgnoreCase(normalized)
+                .orElseThrow(() -> AppException.notFound("Meeting token not found"));
+
+        if (!appointment.isVirtual()) {
+            throw AppException.badRequest("This appointment is not a virtual meeting");
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime joinStartsAt = appointment.getStartTime().minusMinutes(15);
+        OffsetDateTime joinEndsAt = appointment.getEndTime().plusMinutes(30);
+
+        AppointmentResponse.MeetingJoinInfo info = new AppointmentResponse.MeetingJoinInfo();
+        info.setAppointmentId(appointment.getId());
+        info.setMeetingToken(normalized);
+        info.setJoinUrl(frontendUrl + "/meeting/" + normalized);
+        info.setStatus(appointment.getStatus().name());
+        info.setProfessionalName(appointment.getProfessional().getDisplayName());
+        info.setServiceName(appointment.getService().getName());
+        info.setStartTime(appointment.getStartTime());
+        info.setEndTime(appointment.getEndTime());
+
+        boolean inJoinWindow = !now.isBefore(joinStartsAt) && !now.isAfter(joinEndsAt);
+
+        if (appointment.getStatus() != AppointmentStatus.SCHEDULED &&
+                appointment.getStatus() != AppointmentStatus.COMPLETED) {
+            info.setCanJoin(false);
+            info.setReason("Meeting is not available because appointment status is " + appointment.getStatus().name());
+            return info;
+        }
+
+        if (!inJoinWindow) {
+            info.setCanJoin(false);
+            if (now.isBefore(joinStartsAt)) {
+                info.setReason("Meeting has not started yet");
+            } else {
+                info.setReason("Meeting join window has ended");
+            }
+            return info;
+        }
+
+        info.setCanJoin(true);
+        info.setReason("Meeting is ready to join");
+        return info;
     }
 
     // NEW V1 FEATURE 3: Save booking draft
@@ -376,6 +504,15 @@ public class AppointmentService {
         summary.setShareToken(a.getShareToken());
         summary.setIcalUrl("/appointments/" + a.getId() + "/ical");
         summary.setCreatedAt(a.getCreatedAt());
+
+        summary.setMeetingToken(a.getMeetingToken());
+        summary.setClientLat(a.getClientLat());
+        summary.setClientLon(a.getClientLon());
+        summary.setDistanceMeters(a.getDistanceMeters());
+        summary.setDepositStatus(a.getDepositStatus() != null ? a.getDepositStatus().name() : null);
+        summary.setFinalPaymentStatus(a.getFinalPaymentStatus() != null ? a.getFinalPaymentStatus().name() : null);
+        summary.setTotalAmount(a.getTotalAmount());
+
         summary.setProfessional(professionalInfo);
         summary.setService(serviceInfo);
         summary.setClient(clientInfo);
@@ -394,5 +531,16 @@ public class AppointmentService {
         draftSummary.setExpiresAt(d.getExpiresAt());
         draftSummary.setUpdatedAt(d.getUpdatedAt());
         return draftSummary;
+    }
+
+    private double calculateDistanceMeters(double lat1, double lon1, double lat2, double lon2) {
+        final int R = 6371000; // Radius of the earth in meters
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lonDistance = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
     }
 }

@@ -28,6 +28,10 @@ public class AppointmentRequest {
 
         private boolean virtual = false;
 
+        private Double clientLat;
+
+        private Double clientLon;
+
         public UUID getProfessionalId() { return professionalId; }
         public void setProfessionalId(UUID professionalId) { this.professionalId = professionalId; }
         public UUID getServiceId() { return serviceId; }
@@ -40,6 +44,10 @@ public class AppointmentRequest {
         public void setPriority(String priority) { this.priority = priority; }
         public boolean isVirtual() { return virtual; }
         public void setVirtual(boolean virtual) { this.virtual = virtual; }
+        public Double getClientLat() { return clientLat; }
+        public void setClientLat(Double clientLat) { this.clientLat = clientLat; }
+        public Double getClientLon() { return clientLon; }
+        public void setClientLon(Double clientLon) { this.clientLon = clientLon; }
     }
 
     public static class Reschedule {

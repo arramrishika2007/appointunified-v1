@@ -2,17 +2,19 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { addDays, format, isBefore, startOfDay } from 'date-fns'
+import { addDays, format, isBefore, startOfDay, startOfMonth } from 'date-fns'
 import { ArrowLeft, Calendar, Check, Clock, Loader2, MessageSquare } from 'lucide-react'
 import Link from 'next/link'
 import { Navbar } from '@/components/layout/Navbar'
-import { appointmentsApi, professionalsApi } from '@/lib/api'
+import { appointmentsApi, professionalsApi, waitlistApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store'
 import { AvailableSlot, ProfessionalDetail, ServiceSummary } from '@/types'
 import { cn, formatCurrency, formatTimeOnly } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
-const STEPS = ['Service', 'Date', 'Time', 'Confirm']
+import { BespokeBookingCalendar } from '@/components/booking/BespokeBookingCalendar'
+
+const STEPS = ['Service', 'Schedule', 'Confirm']
 
 export default function BookingPage() {
   const params = useParams()
@@ -32,6 +34,9 @@ export default function BookingPage() {
   const [slotsLoading, setSlotsLoading] = useState(false)
   const [step, setStep] = useState(1)
   const [submitting, setSubmitting] = useState(false)
+  const [showWaitlistCta, setShowWaitlistCta] = useState(false)
+  const [joiningWaitlist, setJoiningWaitlist] = useState(false)
+  const providerServices = Array.isArray(provider?.services) ? provider.services : []
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -44,7 +49,11 @@ export default function BookingPage() {
   useEffect(() => {
     professionalsApi.getById(professionalId)
       .then((res) => {
-        const p: ProfessionalDetail = res.data.data
+        const raw = res.data.data as ProfessionalDetail
+        const p: ProfessionalDetail = {
+          ...raw,
+          services: Array.isArray(raw?.services) ? raw.services : [],
+        }
         setProvider(p)
         if (preselectedServiceId) {
           const svc = p.services.find((s) => s.id === preselectedServiceId)
@@ -57,15 +66,16 @@ export default function BookingPage() {
       })
   }, [professionalId, preselectedServiceId, router])
 
+  const [currentMonth, setCurrentMonth] = useState<Date>(startOfMonth(new Date()))
+
   // Load slots when date selected
   useEffect(() => {
     if (!selectedDate || !selectedService) return
     setSlotsLoading(true)
-    setSlots([])
-    setSelectedSlot(null)
+    setSlots([]) // clear old slots
     professionalsApi
       .getSlots(professionalId, format(selectedDate, 'yyyy-MM-dd'), selectedService.id)
-      .then((res) => setSlots(res.data.data))
+      .then((res) => setSlots(res.data?.data || []))
       .finally(() => setSlotsLoading(false))
   }, [selectedDate, selectedService, professionalId])
 
@@ -87,6 +97,7 @@ export default function BookingPage() {
   const handleSubmit = async () => {
     if (!selectedService || !selectedSlot) return
     setSubmitting(true)
+    setShowWaitlistCta(false)
     try {
       const res = await appointmentsApi.create({
         professionalId,
@@ -100,8 +111,29 @@ export default function BookingPage() {
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Booking failed. Please try again.'
       toast.error(msg)
+      if (msg.toLowerCase().includes('no longer available') || msg.toLowerCase().includes('not available')) {
+        setShowWaitlistCta(true)
+      }
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleJoinWaitlist = async () => {
+    if (!selectedService) return
+    setJoiningWaitlist(true)
+    try {
+      await waitlistApi.join({
+        professionalId,
+        serviceId: selectedService.id,
+      })
+      toast.success('Added to waitlist. We will notify you when a slot opens.')
+      setShowWaitlistCta(false)
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Could not join waitlist right now.'
+      toast.error(msg)
+    } finally {
+      setJoiningWaitlist(false)
     }
   }
 
@@ -116,9 +148,8 @@ export default function BookingPage() {
     )
   }
 
-  // Build selectable dates (next 30 days)
+  // Build selectable dates (no longer strictly needed for UI, but kept for logic if any)
   const today = startOfDay(new Date())
-  const dateOptions = Array.from({ length: 30 }, (_, i) => addDays(today, i + 1))
 
   return (
     <>
@@ -167,11 +198,11 @@ export default function BookingPage() {
             {step === 1 && (
               <div>
                 <h2 className="text-xl font-bold text-slate-900 mb-5">Select a Service</h2>
-                {provider.services.filter((s) => s.isActive).length === 0 ? (
+                {providerServices.filter((s) => s.isActive).length === 0 ? (
                   <p className="text-slate-500">No services available.</p>
                 ) : (
                   <div className="space-y-3">
-                    {provider.services.filter((s) => s.isActive).map((svc) => (
+                    {providerServices.filter((s) => s.isActive).map((svc) => (
                       <button
                         key={svc.id}
                         onClick={() => { setSelectedService(svc); setStep(2) }}
@@ -196,96 +227,38 @@ export default function BookingPage() {
               </div>
             )}
 
-            {/* STEP 2: Select Date */}
+            {/* STEP 2: Schedule (Custom Split Calendar) */}
             {step === 2 && (
               <div>
                 <div className="flex items-center justify-between mb-5">
-                  <h2 className="text-xl font-bold text-slate-900">Select Date</h2>
+                  <h2 className="text-xl font-bold text-slate-900">Select Date & Time</h2>
                   <button onClick={() => setStep(1)} className="btn-ghost text-xs">Change service</button>
                 </div>
-                <p className="text-sm text-slate-500 mb-1">Service: <span className="font-medium text-slate-800">{selectedService?.name}</span></p>
+                <p className="text-sm text-slate-500 mb-5">Service: <span className="font-medium text-slate-800">{selectedService?.name}</span></p>
 
-                <div className="mt-4 grid grid-cols-4 sm:grid-cols-7 gap-2">
-                  {dateOptions.map((date) => {
-                    const isSelected = selectedDate && format(date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd')
-                    return (
-                      <button
-                        key={date.toISOString()}
-                        onClick={() => { setSelectedDate(date); setStep(3) }}
-                        className={cn(
-                          'flex flex-col items-center rounded-xl py-3 px-1 border-2 transition-all text-center',
-                          isSelected
-                            ? 'border-brand-500 bg-brand-50 text-brand-700'
-                            : 'border-slate-200 hover:border-brand-300 text-slate-700'
-                        )}
-                      >
-                        <span className="text-[10px] font-medium text-slate-400">{format(date, 'EEE')}</span>
-                        <span className="text-lg font-bold leading-tight">{format(date, 'd')}</span>
-                        <span className="text-[10px] text-slate-400">{format(date, 'MMM')}</span>
-                      </button>
-                    )
-                  })}
-                </div>
+                <BespokeBookingCalendar 
+                    currentMonth={currentMonth}
+                    onMonthChange={setCurrentMonth}
+                    selectedDate={selectedDate}
+                    onDateSelect={(date) => {
+                        setSelectedDate(date)
+                        setSelectedSlot(null) // Reset time slot when changing dates
+                    }}
+                    selectedSlot={selectedSlot}
+                    onSlotSelect={setSelectedSlot}
+                    slotsForSelectedDate={slots}
+                    isLoadingSlots={slotsLoading}
+                    onConfirm={() => setStep(3)} // Moving to confirm step
+                />
               </div>
             )}
 
-            {/* STEP 3: Select Time */}
-            {step === 3 && selectedDate && (
-              <div>
-                <div className="flex items-center justify-between mb-5">
-                  <h2 className="text-xl font-bold text-slate-900">Select Time</h2>
-                  <button onClick={() => setStep(2)} className="btn-ghost text-xs">Change date</button>
-                </div>
-                <p className="text-sm text-slate-500 mb-4">
-                  <Calendar size={13} className="inline mr-1" />
-                  {format(selectedDate, 'EEEE, MMMM d')}
-                </p>
-
-                {slotsLoading ? (
-                  <div className="flex justify-center py-10">
-                    <Loader2 size={24} className="animate-spin text-brand-600" />
-                  </div>
-                ) : slots.length === 0 ? (
-                  <div className="text-center py-10">
-                    <p className="text-slate-500">No available slots on this day.</p>
-                    <button onClick={() => setStep(2)} className="btn-secondary mt-4">Choose another date</button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
-                      {slots.map((slot) => (
-                        <button
-                          key={slot.startTime}
-                          onClick={() => { if (slot.available) { setSelectedSlot(slot); setStep(4) } }}
-                          disabled={!slot.available}
-                          className={cn(
-                            'rounded-xl border-2 py-2.5 text-sm font-medium transition-all',
-                            !slot.available
-                              ? 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed line-through'
-                              : selectedSlot?.startTime === slot.startTime
-                              ? 'border-brand-500 bg-brand-500 shadow-sm shadow-brand-500/20 text-white'
-                              : 'border-slate-200 bg-white hover:border-brand-400 hover:bg-brand-50/30 text-slate-700'
-                          )}
-                        >
-                          {formatTimeOnly(slot.startTime)}
-                        </button>
-                      ))}
-                    </div>
-                    <p className="text-xs text-slate-400 mt-3">
-                      <span className="inline-block w-3 h-3 rounded border-2 border-slate-100 bg-slate-50 mr-1 align-middle" />
-                      Crossed out = booked
-                    </p>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* STEP 4: Confirm */}
-            {step === 4 && selectedService && selectedDate && selectedSlot && (
+            {/* STEP 3: Confirm */}
+            {step === 3 && selectedService && selectedSlot && (
               <div>
                 <div className="flex items-center justify-between mb-5">
                   <h2 className="text-xl font-bold text-slate-900">Confirm Booking</h2>
-                  <button onClick={() => setStep(3)} className="btn-ghost text-xs">Change time</button>
+                  <button onClick={() => setStep(2)} className="btn-ghost text-xs">Change time</button>
                 </div>
 
                 {/* Summary block hidden on desktop because of split pane */}
@@ -300,7 +273,7 @@ export default function BookingPage() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-500">Date</span>
-                    <span className="font-medium text-slate-900">{format(selectedDate, 'EEE, MMM d, yyyy')}</span>
+                    <span className="font-medium text-slate-900">{format(new Date(selectedSlot.startTime), 'EEE, MMM d, yyyy')}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-500">Time</span>
@@ -345,8 +318,23 @@ export default function BookingPage() {
                 </button>
 
                 <p className="text-xs text-center text-slate-400 mt-3">
-                  You'll receive a confirmation email with your appointment details and iCal download link.
+                  You will receive a confirmation email with your appointment details and iCal download link.
                 </p>
+
+                {showWaitlistCta && (
+                  <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                    <p className="text-xs text-amber-800 mb-2">
+                      This slot was just taken. Join the waitlist for this service and get notified when a slot opens.
+                    </p>
+                    <button
+                      onClick={handleJoinWaitlist}
+                      disabled={joiningWaitlist}
+                      className="btn-secondary text-xs"
+                    >
+                      {joiningWaitlist ? <><Loader2 size={14} className="animate-spin" /> Joining…</> : 'Join Waitlist'}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
               </div>
@@ -361,7 +349,7 @@ export default function BookingPage() {
                   {/* Provider Info Bubble */}
                   <div className="flex items-center gap-3 bg-white p-3 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
                     <div className="h-10 w-10 rounded-lg bg-brand-100 text-brand-700 font-bold flex items-center justify-center overflow-hidden flex-shrink-0">
-                      {provider.avatarUrl ? <img src={provider.avatarUrl} className="h-full w-full object-cover" /> : provider.displayName[0]}
+                      {provider.avatarUrl ? <img src={provider.avatarUrl} alt={provider.displayName} className="h-full w-full object-cover" /> : provider.displayName[0]}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-slate-900 text-sm truncate">{provider.displayName}</p>

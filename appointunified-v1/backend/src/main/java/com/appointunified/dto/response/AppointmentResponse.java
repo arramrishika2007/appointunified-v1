@@ -22,6 +22,15 @@ public class AppointmentResponse {
         private String icalUrl;        // NEW V1 FEATURE 4
         private OffsetDateTime createdAt;
 
+        // NEW V1 FEATURE 5: Payments and Security
+        private String meetingToken;
+        private Double clientLat;
+        private Double clientLon;
+        private Integer distanceMeters;
+        private String depositStatus;
+        private String finalPaymentStatus;
+        private BigDecimal totalAmount;
+
         // Nested
         private ProfessionalInfo professional;
         private ServiceInfo service;
@@ -55,6 +64,20 @@ public class AppointmentResponse {
         public void setService(ServiceInfo service) { this.service = service; }
         public ClientInfo getClient() { return client; }
         public void setClient(ClientInfo client) { this.client = client; }
+        public String getMeetingToken() { return meetingToken; }
+        public void setMeetingToken(String meetingToken) { this.meetingToken = meetingToken; }
+        public Double getClientLat() { return clientLat; }
+        public void setClientLat(Double clientLat) { this.clientLat = clientLat; }
+        public Double getClientLon() { return clientLon; }
+        public void setClientLon(Double clientLon) { this.clientLon = clientLon; }
+        public Integer getDistanceMeters() { return distanceMeters; }
+        public void setDistanceMeters(Integer distanceMeters) { this.distanceMeters = distanceMeters; }
+        public String getDepositStatus() { return depositStatus; }
+        public void setDepositStatus(String depositStatus) { this.depositStatus = depositStatus; }
+        public String getFinalPaymentStatus() { return finalPaymentStatus; }
+        public void setFinalPaymentStatus(String finalPaymentStatus) { this.finalPaymentStatus = finalPaymentStatus; }
+        public BigDecimal getTotalAmount() { return totalAmount; }
+        public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
     }
 
     public static class ProfessionalInfo {
@@ -169,5 +192,39 @@ public class AppointmentResponse {
         public void setExpiresAt(OffsetDateTime expiresAt) { this.expiresAt = expiresAt; }
         public OffsetDateTime getUpdatedAt() { return updatedAt; }
         public void setUpdatedAt(OffsetDateTime updatedAt) { this.updatedAt = updatedAt; }
+    }
+
+    public static class MeetingJoinInfo {
+        private UUID appointmentId;
+        private String meetingToken;
+        private boolean canJoin;
+        private String joinUrl;
+        private String status;
+        private String reason;
+        private String professionalName;
+        private String serviceName;
+        private OffsetDateTime startTime;
+        private OffsetDateTime endTime;
+
+        public UUID getAppointmentId() { return appointmentId; }
+        public void setAppointmentId(UUID appointmentId) { this.appointmentId = appointmentId; }
+        public String getMeetingToken() { return meetingToken; }
+        public void setMeetingToken(String meetingToken) { this.meetingToken = meetingToken; }
+        public boolean isCanJoin() { return canJoin; }
+        public void setCanJoin(boolean canJoin) { this.canJoin = canJoin; }
+        public String getJoinUrl() { return joinUrl; }
+        public void setJoinUrl(String joinUrl) { this.joinUrl = joinUrl; }
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
+        public String getReason() { return reason; }
+        public void setReason(String reason) { this.reason = reason; }
+        public String getProfessionalName() { return professionalName; }
+        public void setProfessionalName(String professionalName) { this.professionalName = professionalName; }
+        public String getServiceName() { return serviceName; }
+        public void setServiceName(String serviceName) { this.serviceName = serviceName; }
+        public OffsetDateTime getStartTime() { return startTime; }
+        public void setStartTime(OffsetDateTime startTime) { this.startTime = startTime; }
+        public OffsetDateTime getEndTime() { return endTime; }
+        public void setEndTime(OffsetDateTime endTime) { this.endTime = endTime; }
     }
 }

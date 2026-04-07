@@ -41,9 +41,12 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints
                 .requestMatchers("/auth/**").permitAll()
+                .requestMatchers("/ws/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/professionals/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/slots/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/queue/*/status").permitAll()
                 .requestMatchers(HttpMethod.GET, "/appointments/share/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/appointments/meeting/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/api-docs/**").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
                 // Admin only

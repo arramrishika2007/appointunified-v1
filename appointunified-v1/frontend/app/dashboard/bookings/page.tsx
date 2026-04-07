@@ -2,15 +2,16 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Calendar, Check, Clock, Copy, Download, ExternalLink, Loader2, RefreshCw, Trash2, X } from 'lucide-react'
+import Link from 'next/link'
+import { Calendar, Check, Clock, Copy, Download, ExternalLink, Loader2, RefreshCw, Trash2, Video, X } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
-import { appointmentsApi } from '@/lib/api'
+import { appointmentsApi, waitlistApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store'
-import { AppointmentSummary, DraftSummary } from '@/types'
+import { AppointmentSummary, DraftSummary, WaitlistSummary } from '@/types'
 import { cn, formatDateTime, formatDuration, STATUS_CONFIG } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
-type Tab = 'upcoming' | 'past' | 'drafts'
+type Tab = 'upcoming' | 'past' | 'drafts' | 'waitlist'
 
 export default function MyBookingsPage() {
   const router = useRouter()
@@ -20,8 +21,10 @@ export default function MyBookingsPage() {
   const [tab, setTab] = useState<Tab>('upcoming')
   const [appointments, setAppointments] = useState<AppointmentSummary[]>([])
   const [drafts, setDrafts] = useState<DraftSummary[]>([])
+  const [waitlistEntries, setWaitlistEntries] = useState<WaitlistSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [shareLoading, setShareLoading] = useState<string | null>(null)
+  const [paymentLoading, setPaymentLoading] = useState<string | null>(null)
 
   const justBooked = searchParams.get('booked')
 
@@ -34,11 +37,37 @@ export default function MyBookingsPage() {
     Promise.all([
       appointmentsApi.getMyAppointments({ size: 50 }),
       appointmentsApi.getMyDrafts(),
-    ]).then(([apptRes, draftRes]) => {
+      waitlistApi.getMine(),
+    ]).then(([apptRes, draftRes, waitlistRes]) => {
       setAppointments(apptRes.data.data.content)
       setDrafts(draftRes.data.data)
+      setWaitlistEntries(waitlistRes.data.data)
     }).finally(() => setLoading(false))
   }, [])
+
+  const handleConfirmDeposit = async (id: string) => {
+    setPaymentLoading(id)
+    try {
+      const res = await appointmentsApi.confirmDeposit(id)
+      const updated = res.data.data
+      setAppointments((prev) => prev.map((a) => a.id === id ? { ...a, depositStatus: updated.depositStatus } : a))
+      toast.success('Deposit marked as paid')
+    } catch {
+      toast.error('Could not confirm deposit')
+    } finally {
+      setPaymentLoading(null)
+    }
+  }
+
+  const handleRemoveWaitlist = async (id: string) => {
+    try {
+      await waitlistApi.cancel(id)
+      setWaitlistEntries((prev) => prev.filter((w) => w.id !== id))
+      toast.success('Removed from waitlist')
+    } catch {
+      toast.error('Could not remove waitlist entry')
+    }
+  }
 
   const now = new Date().toISOString()
   const upcomingAppts = appointments.filter((a) =>
@@ -98,6 +127,7 @@ export default function MyBookingsPage() {
     { id: 'upcoming', label: 'Upcoming', count: upcomingAppts.length },
     { id: 'past',     label: 'Past' },
     { id: 'drafts',   label: 'Saved Drafts', count: drafts.length },
+    { id: 'waitlist', label: 'Waitlist', count: waitlistEntries.length },
   ]
 
   return (
@@ -175,7 +205,9 @@ export default function MyBookingsPage() {
                         onCancel={handleCancel}
                         onShare={handleShare}
                         onIcal={handleIcal}
+                        onConfirmDeposit={handleConfirmDeposit}
                         shareLoading={shareLoading === a.id}
+                        paymentLoading={paymentLoading === a.id}
                       />
                     ))
                   )}
@@ -197,9 +229,39 @@ export default function MyBookingsPage() {
                         onCancel={handleCancel}
                         onShare={handleShare}
                         onIcal={handleIcal}
+                        onConfirmDeposit={handleConfirmDeposit}
                         shareLoading={shareLoading === a.id}
+                        paymentLoading={paymentLoading === a.id}
                         isPast
                       />
+                    ))
+                  )}
+                </div>
+              )}
+
+              {tab === 'waitlist' && (
+                <div className="space-y-4">
+                  {waitlistEntries.length === 0 ? (
+                    <div className="card p-12 text-center">
+                      <p className="text-slate-400">No active waitlist entries.</p>
+                    </div>
+                  ) : (
+                    waitlistEntries.map((entry) => (
+                      <div key={entry.id} className="card p-5 flex items-center justify-between gap-4">
+                        <div>
+                          <p className="font-semibold text-slate-900">{entry.professionalName}</p>
+                          <p className="text-sm text-slate-500">{entry.serviceName || 'Any service'}</p>
+                          <p className="text-xs text-slate-400 mt-1">
+                            {entry.notified ? 'Notified' : 'Waiting'} · Added {new Date(entry.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleRemoveWaitlist(entry.id)}
+                          className="btn-ghost text-red-500 hover:text-red-700"
+                        >
+                          <X size={14} /> Remove
+                        </button>
+                      </div>
                     ))
                   )}
                 </div>
@@ -265,13 +327,18 @@ interface CardProps {
   onCancel: (id: string) => void
   onShare: (id: string) => void
   onIcal: (id: string) => void
+  onConfirmDeposit: (id: string) => void
   shareLoading?: boolean
+  paymentLoading?: boolean
   isPast?: boolean
 }
 
-function AppointmentCard({ appt, onCancel, onShare, onIcal, shareLoading, isPast }: CardProps) {
+function AppointmentCard({ appt, onCancel, onShare, onIcal, onConfirmDeposit, shareLoading, paymentLoading, isPast }: CardProps) {
   const statusCfg = STATUS_CONFIG[appt.status]
   const canCancel = !isPast && ['SCHEDULED'].includes(appt.status)
+  const canTrackQueue = !isPast && ['IN_QUEUE', 'IN_PROGRESS'].includes(appt.status)
+  const canConfirmDeposit = !isPast && appt.status === 'SCHEDULED' && appt.depositStatus !== 'CONFIRMED'
+  const canJoinMeeting = !isPast && appt.virtual && !!appt.meetingToken && ['SCHEDULED', 'IN_PROGRESS'].includes(appt.status)
 
   return (
     <div className="card p-5 animate-fade-in">
@@ -304,6 +371,35 @@ function AppointmentCard({ appt, onCancel, onShare, onIcal, shareLoading, isPast
 
       {/* Action buttons */}
       <div className="flex items-center gap-2 flex-wrap">
+        {canTrackQueue && (
+          <Link
+            href={`/queue?professional=${appt.professional.id}&appointment=${appt.id}&name=${encodeURIComponent(appt.professional.displayName)}`}
+            className="btn-ghost text-xs px-3 py-1.5"
+          >
+            <ExternalLink size={13} /> Track Queue
+          </Link>
+        )}
+
+        {canJoinMeeting && (
+          <Link
+            href={`/meeting/join?token=${encodeURIComponent(appt.meetingToken as string)}`}
+            className="btn-ghost text-xs px-3 py-1.5"
+          >
+            <Video size={13} /> Join Meeting
+          </Link>
+        )}
+
+        {canConfirmDeposit && (
+          <button
+            onClick={() => onConfirmDeposit(appt.id)}
+            disabled={paymentLoading}
+            className="btn-ghost text-xs px-3 py-1.5"
+          >
+            {paymentLoading ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+            I Paid Deposit
+          </button>
+        )}
+
         {/* iCal download — NEW V1 FEATURE 4 */}
         <button
           onClick={() => onIcal(appt.id)}

@@ -3,11 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowRight, Calendar, Clock, Star, TrendingUp, Zap, HeartPulse, Landmark, Settings2 } from 'lucide-react'
+import { ArrowRight, Calendar, Clock, Star, TrendingUp, Zap, HeartPulse, Landmark, Settings2, ShieldAlert } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { useAuthStore } from '@/lib/store'
-import { appointmentsApi, professionalsApi } from '@/lib/api'
-import { AppointmentSummary, ProfessionalSummary } from '@/types'
+import { appointmentsApi, professionalsApi, usersApi } from '@/lib/api'
+import { AppointmentSummary, ProfessionalSummary, RiskSummary } from '@/types'
 import { cn, formatDateTime, formatDuration, SECTOR_CONFIG, STATUS_CONFIG } from '@/lib/utils'
 
 export default function DashboardPage() {
@@ -15,6 +15,7 @@ export default function DashboardPage() {
   const { isAuthenticated, user } = useAuthStore()
   const [upcoming, setUpcoming] = useState<AppointmentSummary[]>([])
   const [recommended, setRecommended] = useState<ProfessionalSummary[]>([])
+  const [riskSummary, setRiskSummary] = useState<RiskSummary | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -24,7 +25,8 @@ export default function DashboardPage() {
       appointmentsApi.getMyAppointments({ size: 3, sort: 'startTime,asc' }),
       // Smart Recommendation: fetch top-rated providers across all sectors as fallback
       professionalsApi.search({ size: 4, sort: 'ratingAvg,desc', verificationStatus: 'APPROVED' }),
-    ]).then(([apptRes, recRes]) => {
+      usersApi.getMyRiskSummary(),
+    ]).then(([apptRes, recRes, riskRes]) => {
       const now = new Date().toISOString()
 
       if (apptRes.status === 'fulfilled') {
@@ -41,6 +43,10 @@ export default function DashboardPage() {
         setRecommended(recRes.value.data.data.content)
       } else {
         setRecommended([])
+      }
+
+      if (riskRes.status === 'fulfilled') {
+        setRiskSummary(riskRes.value.data.data)
       }
     }).finally(() => setLoading(false))
   }, [isAuthenticated, router])
@@ -62,8 +68,10 @@ export default function DashboardPage() {
 
           {/* Welcome */}
           <div className="mb-8">
+            <h1 className="text-2xl font-bold text-slate-900">
               {greeting()}, {user.fullName.split(' ')[0]} <span className="text-accent underline decoration-wavy ml-1">!</span>
-            <p className="text-slate-500 text-sm mt-1">Here's your appointment overview</p>
+            </h1>
+            <p className="text-slate-500 text-sm mt-1">Here is your appointment overview</p>
           </div>
 
           {/* Quick actions */}
@@ -80,6 +88,30 @@ export default function DashboardPage() {
               </Link>
             ))}
           </div>
+
+          <div className="mb-8">
+            <Link
+              href="/dashboard/queue"
+              className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline"
+            >
+              Queue Preferences
+            </Link>
+          </div>
+
+          {riskSummary && (
+            <div className="mb-8 card p-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs text-slate-500 mb-1">Behavior Risk</p>
+                <p className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                  <ShieldAlert size={14} className="text-amber-600" />
+                  {riskSummary.riskLevel} ({riskSummary.score.toFixed(2)})
+                </p>
+              </div>
+              <p className="text-xs text-slate-500">
+                No-shows: {riskSummary.noShows} · Late cancels: {riskSummary.lastMinuteCancellations}
+              </p>
+            </div>
+          )}
 
           <div className="grid lg:grid-cols-3 gap-6">
 

@@ -24,6 +24,8 @@ export default function ProfessionalDashboardPage() {
   const [moodNote, setMoodNote] = useState('')
   const [moodUpdating, setMoodUpdating] = useState(false)
   const [showMoodPanel, setShowMoodPanel] = useState(false)
+  const [allowOverbooking, setAllowOverbooking] = useState(false)
+  const [overbookingUpdating, setOverbookingUpdating] = useState(false)
 
   useEffect(() => {
     if (!hasHydrated) return
@@ -38,9 +40,13 @@ export default function ProfessionalDashboardPage() {
       verificationApi.getStatus().catch(err => {
         console.error('Failed to load verification status:', err)
         return null
-      })
+      }),
+      professionalsApi.getMyProfile().catch(err => {
+        console.error('Failed to load professional profile:', err)
+        return null
+      }),
     ])
-      .then(([apptRes, verifRes]) => {
+      .then(([apptRes, verifRes, myProfileRes]) => {
         const now = new Date().toISOString()
         const appts = apptRes?.data?.data?.content || []
         setAppointments(
@@ -48,6 +54,9 @@ export default function ProfessionalDashboardPage() {
         )
         if (verifRes?.data?.data) {
           setVerificationStatus(verifRes.data.data.verificationStatus)
+        }
+        if (myProfileRes?.data?.data) {
+          setAllowOverbooking(!!myProfileRes.data.data.allowOverbooking)
         }
       })
       .catch(err => console.error("Critical dashboard load failure:", err))
@@ -65,6 +74,20 @@ export default function ProfessionalDashboardPage() {
       toast.error('Failed to update mood status')
     } finally {
       setMoodUpdating(false)
+    }
+  }
+
+  const handleOverbookingToggle = async () => {
+    const next = !allowOverbooking
+    setOverbookingUpdating(true)
+    try {
+      await professionalsApi.updateOverbooking(next)
+      setAllowOverbooking(next)
+      toast.success(next ? 'Smart overbooking enabled' : 'Smart overbooking disabled')
+    } catch {
+      toast.error('Failed to update overbooking setting')
+    } finally {
+      setOverbookingUpdating(false)
     }
   }
 
@@ -100,6 +123,20 @@ export default function ProfessionalDashboardPage() {
             <div>
               <h1 className="text-2xl font-bold text-slate-900">Professional Dashboard</h1>
               <p className="text-slate-500 text-sm mt-1">Manage your schedule and appointments</p>
+              <Link
+                href="/professional/queue"
+                className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline mt-2"
+              >
+                Open Queue Control
+              </Link>
+              <button
+                onClick={handleOverbookingToggle}
+                disabled={overbookingUpdating}
+                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              >
+                {overbookingUpdating ? <Loader2 size={12} className="animate-spin" /> : <TrendingUp size={12} />}
+                Smart Overbooking: {allowOverbooking ? 'On' : 'Off'}
+              </button>
             </div>
 
             {/* Mood Status Widget — NEW V1 FEATURE 2 */}

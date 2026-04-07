@@ -23,6 +23,8 @@ public class ProfessionalResponse {
         private BigDecimal consultationFee;
         private String city;
         private Boolean acceptingBookings;
+        private Boolean allowOverbooking;
+        private String upiId;
         // NEW: Mood
         private String availabilityMood;
         private String moodNote;
@@ -53,6 +55,10 @@ public class ProfessionalResponse {
         public void setCity(String city) { this.city = city; }
         public Boolean getAcceptingBookings() { return acceptingBookings; }
         public void setAcceptingBookings(Boolean acceptingBookings) { this.acceptingBookings = acceptingBookings; }
+        public Boolean getAllowOverbooking() { return allowOverbooking; }
+        public void setAllowOverbooking(Boolean allowOverbooking) { this.allowOverbooking = allowOverbooking; }
+        public String getUpiId() { return upiId; }
+        public void setUpiId(String upiId) { this.upiId = upiId; }
         public String getAvailabilityMood() { return availabilityMood; }
         public void setAvailabilityMood(String availabilityMood) { this.availabilityMood = availabilityMood; }
         public String getMoodNote() { return moodNote; }

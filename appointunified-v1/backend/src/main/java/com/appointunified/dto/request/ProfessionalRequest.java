@@ -33,6 +33,8 @@ public class ProfessionalRequest {
         private BigDecimal longitude;
         private BigDecimal serviceAreaRadiusKm;
 
+        private String upiId;
+
         @Valid
         private List<AvailabilitySlot> weeklySchedule;
 
@@ -62,6 +64,8 @@ public class ProfessionalRequest {
         public void setLongitude(BigDecimal longitude) { this.longitude = longitude; }
         public BigDecimal getServiceAreaRadiusKm() { return serviceAreaRadiusKm; }
         public void setServiceAreaRadiusKm(BigDecimal serviceAreaRadiusKm) { this.serviceAreaRadiusKm = serviceAreaRadiusKm; }
+        public String getUpiId() { return upiId; }
+        public void setUpiId(String upiId) { this.upiId = upiId; }
         public List<AvailabilitySlot> getWeeklySchedule() { return weeklySchedule; }
         public void setWeeklySchedule(List<AvailabilitySlot> weeklySchedule) { this.weeklySchedule = weeklySchedule; }
     }
@@ -79,6 +83,7 @@ public class ProfessionalRequest {
         private String avatarUrl;
         private String coverUrl;
         private Boolean acceptingBookings;
+        private String upiId;
 
         public String getDisplayName() { return displayName; }
         public void setDisplayName(String displayName) { this.displayName = displayName; }
@@ -104,6 +109,8 @@ public class ProfessionalRequest {
         public void setCoverUrl(String coverUrl) { this.coverUrl = coverUrl; }
         public Boolean getAcceptingBookings() { return acceptingBookings; }
         public void setAcceptingBookings(Boolean acceptingBookings) { this.acceptingBookings = acceptingBookings; }
+        public String getUpiId() { return upiId; }
+        public void setUpiId(String upiId) { this.upiId = upiId; }
     }
 
     // NEW V1 FEATURE 2: Mood Status Update

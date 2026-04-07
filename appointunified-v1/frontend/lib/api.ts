@@ -114,11 +114,14 @@ export const devicesApi = {
 export const professionalsApi = {
   search: (params: object) => api.get('/professionals', { params }),
   getById: (id: string) => api.get(`/professionals/${id}`),
+  getMyProfile: () => api.get('/professionals/me'),
   getSlots: (id: string, date: string, serviceId?: string) =>
     api.get(`/professionals/${id}/slots`, { params: { date, serviceId } }),
   register: (data: object) => api.post('/professionals/register', data),
   updateProfile: (data: object) => api.patch('/professionals/me', data),
   updateMood: (data: object) => api.patch('/professionals/me/mood', data),
+  updateOverbooking: (allowOverbooking: boolean) =>
+    api.patch('/professionals/me/overbooking', { allowOverbooking }),
 }
 
 export const appointmentsApi = {
@@ -128,10 +131,23 @@ export const appointmentsApi = {
   reschedule: (id: string, data: object) => api.put(`/appointments/${id}/reschedule`, data),
   complete: (id: string) => api.post(`/appointments/${id}/complete`),
   noShow: (id: string) => api.post(`/appointments/${id}/no-show`),
+  confirmDeposit: (id: string) => api.post(`/appointments/${id}/confirm-deposit`),
+  verifyFinalPayment: (id: string) => api.post(`/appointments/${id}/verify-final-payment`),
   getShareInfo: (id: string) => api.get(`/appointments/${id}/share`),
   getByShareToken: (token: string) => api.get(`/appointments/share/${token}`),
+  validateMeetingToken: (token: string) => api.get(`/appointments/meeting/validate-token/${token}`),
   // Drafts
   saveDraft: (data: object) => api.post('/appointments/drafts', data),
   getMyDrafts: () => api.get('/appointments/drafts'),
   deleteDraft: (id: string) => api.delete(`/appointments/drafts/${id}`),
+}
+
+export const usersApi = {
+  getMyRiskSummary: () => api.get('/users/me/risk-summary'),
+}
+
+export const waitlistApi = {
+  join: (data: object) => api.post('/waitlist', data),
+  getMine: () => api.get('/waitlist/me'),
+  cancel: (id: string) => api.delete(`/waitlist/${id}`),
 }

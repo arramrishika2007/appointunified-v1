@@ -19,6 +19,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
     Page<Appointment> findByClientIdOrderByStartTimeDesc(UUID clientId, Pageable pageable);
     Page<Appointment> findByProfessionalIdOrderByStartTimeAsc(UUID professionalId, Pageable pageable);
     Optional<Appointment> findByShareToken(String shareToken);
+       Optional<Appointment> findFirstByMeetingTokenIgnoreCase(String meetingToken);
        long countByProfessionalId(UUID professionalId);
        long countByProfessionalIdAndStatus(UUID professionalId, AppointmentStatus status);
 

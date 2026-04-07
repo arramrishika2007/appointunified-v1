@@ -282,6 +282,44 @@ public class NotificationService {
     }
 
     @Async
+    public void sendWaitlistSpotAvailable(User user, Appointment cancelledAppointment) {
+        if (user.getEmail() == null && user.getPhone() == null) return;
+        try {
+            String subject = "A spot just opened for " + cancelledAppointment.getService().getName();
+            String body = String.format("""
+                    Hi %s,
+
+                    Good news. A waitlist spot just opened up.
+
+                    Provider: %s
+                    Service:  %s
+                    New slot: %s
+
+                    Please book soon before it gets taken.
+                    Book now: %s/provider/%s
+
+                    — AppointUnified
+                    """,
+                    user.getFullName(),
+                    cancelledAppointment.getProfessional().getDisplayName(),
+                    cancelledAppointment.getService().getName(),
+                    cancelledAppointment.getStartTime().format(FORMATTER),
+                    frontendUrl,
+                    cancelledAppointment.getProfessional().getId());
+
+            sendEmail(user, subject, body);
+            sendPushNotification(user, "Waitlist update", "A slot opened for " + cancelledAppointment.getService().getName());
+            sendChannelMessage(user, String.format(
+                    "Waitlist update: Slot opened for %s with %s at %s",
+                    cancelledAppointment.getService().getName(),
+                    cancelledAppointment.getProfessional().getDisplayName(),
+                    cancelledAppointment.getStartTime().format(FORMATTER)));
+        } catch (Exception e) {
+            log.error("Failed to send waitlist promotion notification: {}", e.getMessage());
+        }
+    }
+
+    @Async
     public void notifySuperAdminsProfessionalApproved(Professional professional, User admin) {
         if (professional == null || admin == null) {
             return;

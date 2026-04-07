@@ -2,9 +2,11 @@ package com.appointunified.controller;
 
 import com.appointunified.dto.response.ApiResponse;
 import com.appointunified.dto.response.AuthResponse;
+import com.appointunified.dto.response.BehaviorResponse;
 import com.appointunified.entity.User;
 import com.appointunified.exception.AppException;
 import com.appointunified.repository.UserRepository;
+import com.appointunified.service.BehaviorScoringService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -12,6 +14,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -26,6 +29,7 @@ public class UserController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final BehaviorScoringService behaviorScoringService;
 
     @GetMapping("/me")
     @Operation(summary = "Get own profile")
@@ -91,6 +95,20 @@ public class UserController {
         userRepository.save(user);
 
         return ResponseEntity.ok(ApiResponse.ok("Account deactivated. Contact support to reactivate.", null));
+    }
+
+    @GetMapping("/{id}/risk-score")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','PROFESSIONAL')")
+    @Operation(summary = "Get user's behavior risk score")
+    public ResponseEntity<ApiResponse<BehaviorResponse.RiskScore>> getRiskScore(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(behaviorScoringService.getRiskScore(id)));
+    }
+
+    @GetMapping("/me/risk-summary")
+    @Operation(summary = "Get my behavior risk summary")
+    public ResponseEntity<ApiResponse<BehaviorResponse.RiskSummary>> getMyRiskSummary(
+            @AuthenticationPrincipal UUID userId) {
+        return ResponseEntity.ok(ApiResponse.ok(behaviorScoringService.getRiskSummary(userId)));
     }
 
     private AuthResponse.UserInfo toUserInfo(User u) {

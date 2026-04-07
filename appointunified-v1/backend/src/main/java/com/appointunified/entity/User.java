@@ -61,6 +61,12 @@ public class User {
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
+    @Column(name = "is_blocked_for_unpaid", nullable = false)
+    private boolean blockedForUnpaid = false;
+
+    @Column(name = "unpaid_balance", precision = 10, scale = 2)
+    private BigDecimal unpaidBalance = BigDecimal.ZERO;
+
     @Column(name = "risk_score", precision = 3, scale = 2)
     private BigDecimal riskScore = BigDecimal.ZERO;
 
@@ -201,6 +207,22 @@ public class User {
 
     public void setRiskScore(BigDecimal riskScore) {
         this.riskScore = riskScore;
+    }
+
+    public boolean isBlockedForUnpaid() {
+        return blockedForUnpaid;
+    }
+
+    public void setBlockedForUnpaid(boolean blockedForUnpaid) {
+        this.blockedForUnpaid = blockedForUnpaid;
+    }
+
+    public BigDecimal getUnpaidBalance() {
+        return unpaidBalance;
+    }
+
+    public void setUnpaidBalance(BigDecimal unpaidBalance) {
+        this.unpaidBalance = unpaidBalance;
     }
 
     public OffsetDateTime getLastLoginAt() {

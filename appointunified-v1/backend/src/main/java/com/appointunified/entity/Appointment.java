@@ -3,8 +3,8 @@ package com.appointunified.entity;
 import com.appointunified.enums.AppointmentPriority;
 import com.appointunified.enums.AppointmentStatus;
 import jakarta.persistence.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+import org.hibernate.annotations.JdbcType;
+import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -36,12 +36,13 @@ public class Appointment {
     private OffsetDateTime endTime;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcType(PostgreSQLEnumJdbcType.class)
+    @Column(nullable = false, columnDefinition = "appointment_status")
     private AppointmentStatus status = AppointmentStatus.SCHEDULED;
 
     @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(name = "priority", nullable = false, length = 20)
+    @JdbcType(PostgreSQLEnumJdbcType.class)
+    @Column(name = "priority", nullable = false, columnDefinition = "appointment_priority")
     private AppointmentPriority priority = AppointmentPriority.NORMAL;
 
     @Column(columnDefinition = "TEXT")
@@ -58,6 +59,31 @@ public class Appointment {
 
     @Column(name = "meet_link")
     private String meetLink;
+
+    @Column(name = "meeting_token", length = 10)
+    private String meetingToken;
+
+    @Column(name = "client_lat", precision = 10, scale = 7)
+    private Double clientLat;
+
+    @Column(name = "client_lon", precision = 10, scale = 7)
+    private Double clientLon;
+
+    @Column(name = "distance_meters")
+    private Integer distanceMeters;
+
+    @Enumerated(EnumType.STRING)
+    @JdbcType(PostgreSQLEnumJdbcType.class)
+    @Column(name = "deposit_status", columnDefinition = "payment_status")
+    private com.appointunified.enums.PaymentStatus depositStatus = com.appointunified.enums.PaymentStatus.PENDING;
+
+    @Enumerated(EnumType.STRING)
+    @JdbcType(PostgreSQLEnumJdbcType.class)
+    @Column(name = "final_payment_status", columnDefinition = "payment_status")
+    private com.appointunified.enums.PaymentStatus finalPaymentStatus = com.appointunified.enums.PaymentStatus.PENDING;
+
+    @Column(name = "total_amount", precision = 10, scale = 2)
+    private java.math.BigDecimal totalAmount;
 
     @Column(name = "cancellation_reason", columnDefinition = "TEXT")
     private String cancellationReason;
@@ -135,6 +161,20 @@ public class Appointment {
     public void setShareToken(String shareToken) { this.shareToken = shareToken; }
     public OffsetDateTime getShareExpiresAt() { return shareExpiresAt; }
     public void setShareExpiresAt(OffsetDateTime shareExpiresAt) { this.shareExpiresAt = shareExpiresAt; }
+    public String getMeetingToken() { return meetingToken; }
+    public void setMeetingToken(String meetingToken) { this.meetingToken = meetingToken; }
+    public Double getClientLat() { return clientLat; }
+    public void setClientLat(Double clientLat) { this.clientLat = clientLat; }
+    public Double getClientLon() { return clientLon; }
+    public void setClientLon(Double clientLon) { this.clientLon = clientLon; }
+    public Integer getDistanceMeters() { return distanceMeters; }
+    public void setDistanceMeters(Integer distanceMeters) { this.distanceMeters = distanceMeters; }
+    public com.appointunified.enums.PaymentStatus getDepositStatus() { return depositStatus; }
+    public void setDepositStatus(com.appointunified.enums.PaymentStatus depositStatus) { this.depositStatus = depositStatus; }
+    public com.appointunified.enums.PaymentStatus getFinalPaymentStatus() { return finalPaymentStatus; }
+    public void setFinalPaymentStatus(com.appointunified.enums.PaymentStatus finalPaymentStatus) { this.finalPaymentStatus = finalPaymentStatus; }
+    public java.math.BigDecimal getTotalAmount() { return totalAmount; }
+    public void setTotalAmount(java.math.BigDecimal totalAmount) { this.totalAmount = totalAmount; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }

@@ -82,6 +82,25 @@ public class AppointmentController {
         return ResponseEntity.ok(ApiResponse.ok(appointmentService.markNoShow(id, userId)));
     }
 
+    // NEW V1 FEATURE 5: Confirm Deposit Payment
+    @PostMapping("/{id}/confirm-deposit")
+    @Operation(summary = "Confirm that the user has paid the deposit (honesty system button)")
+    public ResponseEntity<ApiResponse<AppointmentResponse.Summary>> confirmDepositAndBook(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UUID userId) {
+        return ResponseEntity.ok(ApiResponse.ok(appointmentService.confirmDepositAndBook(id, userId)));
+    }
+
+    // NEW V1 FEATURE 5: Professional verified full/final payment
+    @PostMapping("/{id}/verify-final-payment")
+    @PreAuthorize("hasRole('PROFESSIONAL')")
+    @Operation(summary = "Professional verifies final payment received")
+    public ResponseEntity<ApiResponse<AppointmentResponse.Summary>> verifyFinalPayment(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UUID userId) {
+        return ResponseEntity.ok(ApiResponse.ok(appointmentService.verifyFinalPayment(id, userId)));
+    }
+
     // NEW V1 FEATURE 4: Share link
     @GetMapping("/{id}/share")
     @Operation(summary = "Get shareable link for appointment")
@@ -109,6 +128,13 @@ public class AppointmentController {
     public ResponseEntity<ApiResponse<AppointmentResponse.Summary>> getByShareToken(
             @PathVariable String shareToken) {
         return ResponseEntity.ok(ApiResponse.ok(appointmentService.getByShareToken(shareToken)));
+    }
+
+    @GetMapping("/meeting/validate-token/{meetingToken}")
+    @Operation(summary = "Validate meeting token and check join eligibility")
+    public ResponseEntity<ApiResponse<AppointmentResponse.MeetingJoinInfo>> validateMeetingToken(
+            @PathVariable String meetingToken) {
+        return ResponseEntity.ok(ApiResponse.ok(appointmentService.validateMeetingToken(meetingToken)));
     }
 
     // NEW V1 FEATURE 3: Draft endpoints
