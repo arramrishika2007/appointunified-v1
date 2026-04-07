@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Clock, Loader2, Plus, Trash2 } from 'lucide-react'
+import { Clock, FileText, Loader2, Monitor, Plus, Trash2 } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { useAuthStore } from '@/lib/store'
 import { api } from '@/lib/api'
@@ -162,8 +162,8 @@ export default function ServicesManagementPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
                       <p className="font-semibold text-slate-900">{s.name}</p>
-                      {s.isVirtual && <span className="badge bg-blue-50 text-blue-600 text-xs">🖥️ Virtual</span>}
-                      {s.requiresDocuments && <span className="badge bg-amber-50 text-amber-700 text-xs">📄 Docs</span>}
+                      {s.isVirtual && <span className="badge bg-blue-50 text-blue-600 text-xs inline-flex items-center gap-1"><Monitor size={11} /> Virtual</span>}
+                      {s.requiresDocuments && <span className="badge bg-amber-50 text-amber-700 text-xs inline-flex items-center gap-1"><FileText size={11} /> Docs</span>}
                     </div>
                     {s.description && <p className="text-sm text-slate-500 truncate">{s.description}</p>}
                     <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">

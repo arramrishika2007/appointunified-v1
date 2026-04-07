@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { Calendar, CheckCircle2, Clock, Loader2, MapPin } from 'lucide-react'
+import { Calendar, CalendarDown, CheckCircle2, Clock, Link2, Loader2, MapPin, Monitor } from 'lucide-react'
 import Link from 'next/link'
 import { appointmentsApi } from '@/lib/api'
 import { AppointmentSummary } from '@/types'
@@ -36,7 +36,9 @@ export default function SharedAppointmentPage() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="card p-8 max-w-md w-full text-center">
-          <div className="text-5xl mb-4">🔗</div>
+          <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
+            <Link2 size={22} className="text-slate-500" />
+          </div>
           <h1 className="text-xl font-bold text-slate-900 mb-2">Link expired</h1>
           <p className="text-slate-500 text-sm mb-6">{error}</p>
           <Link href="/" className="btn-primary">Go to AppointUnified</Link>
@@ -120,7 +122,7 @@ export default function SharedAppointmentPage() {
             {appt.virtual && appt.meetLink && (
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-                  <span className="text-base">🖥️</span>
+                  <Monitor size={16} className="text-blue-600" />
                 </div>
                 <div>
                   <p className="text-xs text-slate-400">Virtual appointment</p>
@@ -135,9 +137,9 @@ export default function SharedAppointmentPage() {
           <div className="border-t border-slate-100 pt-4 flex flex-col gap-2">
             <a
               href={`${process.env.NEXT_PUBLIC_API_URL}/appointments/${appt.id}/ical`}
-              className="btn-secondary w-full text-center"
+              className="btn-secondary w-full text-center inline-flex items-center justify-center gap-2"
             >
-              📅 Download to Calendar (.ics)
+              <CalendarDown size={15} /> Download to Calendar (.ics)
             </a>
             <Link href="/auth/signup" className="btn-primary w-full text-center">
               Book your own appointment →

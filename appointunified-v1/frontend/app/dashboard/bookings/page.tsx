@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Calendar, Check, Clock, Copy, Download, ExternalLink, GitBranch, Loader2, RefreshCw, Trash2, Video, X } from 'lucide-react'
+import { Calendar, Check, Clock, Copy, Download, ExternalLink, GitBranch, Loader2, Monitor, RefreshCw, Trash2, Video, X } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { appointmentsApi, waitlistApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store'
@@ -389,7 +389,7 @@ function AppointmentCard({ appt, onCancel, onShare, onIcal, onConfirmDeposit, on
           <Clock size={13} className="text-slate-400" />
           {formatDuration(appt.service.durationMinutes)}
         </span>
-        {appt.virtual && <span className="text-brand-600 text-xs font-medium">🖥️ Virtual</span>}
+        {appt.virtual && <span className="inline-flex items-center gap-1 text-brand-600 text-xs font-medium"><Monitor size={12} /> Virtual</span>}
       </div>
 
       {/* Action buttons */}

@@ -45,6 +45,10 @@ export default function WorkflowsPage() {
     () => instances.filter((item) => item.status === 'IN_PROGRESS'),
     [instances]
   )
+  const completedInstances = useMemo(
+    () => instances.filter((item) => item.status === 'COMPLETED'),
+    [instances]
+  )
 
   const startWorkflow = async (workflowId: string) => {
     setStartLoading(workflowId)
@@ -78,6 +82,23 @@ export default function WorkflowsPage() {
             </Link>
           </div>
 
+          {!loading && (
+            <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="card p-4">
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">Available Plans</p>
+                <p className="mt-1 text-2xl font-bold text-slate-900">{definitions.length}</p>
+              </div>
+              <div className="card p-4">
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">Active Instances</p>
+                <p className="mt-1 text-2xl font-bold text-brand-700">{activeInstances.length}</p>
+              </div>
+              <div className="card p-4">
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">Completed</p>
+                <p className="mt-1 text-2xl font-bold text-emerald-700">{completedInstances.length}</p>
+              </div>
+            </div>
+          )}
+
           {loading ? (
             <div className="flex justify-center py-20">
               <Loader2 size={30} className="animate-spin text-brand-600" />
@@ -95,11 +116,11 @@ export default function WorkflowsPage() {
                     <div className="card p-6 text-sm text-slate-500">No workflows available right now.</div>
                   ) : (
                     definitions.map((definition) => (
-                      <div key={definition.id} className="card p-4">
+                      <div key={definition.id} className="card p-5">
                         <div className="mb-2 flex items-start justify-between gap-3">
                           <div>
-                            <p className="font-semibold text-slate-900">{definition.name}</p>
-                            <p className="mt-0.5 text-xs text-slate-500">{definition.sector}</p>
+                            <p className="text-base font-semibold text-slate-900">{definition.name}</p>
+                            <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-slate-500">{definition.sector}</p>
                           </div>
                           <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-semibold text-brand-700">
                             {definition.steps.length} steps
@@ -136,9 +157,9 @@ export default function WorkflowsPage() {
                       const done = instance.steps.filter((s) => !!s.completedAt).length
                       const pct = Math.round((done / Math.max(instance.totalSteps, 1)) * 100)
                       return (
-                        <div key={instance.id} className="card p-4">
+                        <div key={instance.id} className="card p-5">
                           <div className="mb-2 flex items-center justify-between gap-3">
-                            <p className="font-semibold text-slate-900">{instance.workflowName}</p>
+                            <p className="text-base font-semibold text-slate-900">{instance.workflowName}</p>
                             <span className="text-xs font-medium text-slate-500">Step {instance.currentStep}/{instance.totalSteps}</span>
                           </div>
 
@@ -150,7 +171,7 @@ export default function WorkflowsPage() {
 
                           <div className="flex items-center justify-between gap-3 text-xs">
                             <p className="text-slate-500">Next: {instance.nextStep?.label || 'Completed'}</p>
-                            <Link href={`/bookings/workflow/${instance.id}`} className="text-brand-600 hover:underline">
+                            <Link href={`/bookings/workflow/${instance.id}`} className="font-semibold text-brand-600 hover:underline">
                               Open Tracker
                             </Link>
                           </div>

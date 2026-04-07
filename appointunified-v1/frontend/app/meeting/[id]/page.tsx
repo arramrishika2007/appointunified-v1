@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { JitsiMeeting } from '@jitsi/react-sdk'
 import { useAuthStore } from '@/lib/store'
-import { Loader2 } from 'lucide-react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
 
 export default function MeetingPage() {
   const params = useParams()
@@ -37,7 +37,7 @@ export default function MeetingPage() {
             onClick={() => router.back()} 
             className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg backdrop-blur-md transition-all text-sm font-medium"
         >
-            ← Back to Dashboard
+          <span className="inline-flex items-center gap-1.5"><ArrowLeft size={14} /> Back to Dashboard</span>
         </button>
       </div>
       <JitsiMeeting

@@ -53,6 +53,10 @@ export default function WorkflowInstancePage({ params }: WorkflowInstancePagePro
     const completed = instance.steps.filter((s) => !!s.completedAt).length
     return Math.round((completed / Math.max(instance.totalSteps, 1)) * 100)
   }, [instance])
+  const completedCount = useMemo(() => {
+    if (!instance) return 0
+    return instance.steps.filter((s) => !!s.completedAt).length
+  }, [instance])
 
   const buildBookLink = (step: WorkflowStepProgress) => {
     if (!step.professionalId) return null
@@ -95,6 +99,21 @@ export default function WorkflowInstancePage({ params }: WorkflowInstancePagePro
                 </Link>
               </div>
 
+              <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="card p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Progress</p>
+                  <p className="mt-1 text-2xl font-bold text-brand-700">{progress}%</p>
+                </div>
+                <div className="card p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Current Step</p>
+                  <p className="mt-1 text-2xl font-bold text-slate-900">{instance.currentStep}/{instance.totalSteps}</p>
+                </div>
+                <div className="card p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Completed Steps</p>
+                  <p className="mt-1 text-2xl font-bold text-emerald-700">{completedCount}</p>
+                </div>
+              </div>
+
               <div className="card mb-6 p-4">
                 <div className="mb-2 flex items-center justify-between gap-3 text-sm">
                   <p className="font-medium text-slate-900">Progress</p>
@@ -114,7 +133,7 @@ export default function WorkflowInstancePage({ params }: WorkflowInstancePagePro
                   const bookingLink = buildBookLink(step)
 
                   return (
-                    <div key={step.order} className={cn('card p-4', active && 'ring-1 ring-brand-300')}>
+                    <div key={step.order} className={cn('card border-l-4 p-4', active ? 'border-l-brand-500 ring-1 ring-brand-300' : completed ? 'border-l-emerald-500' : 'border-l-slate-200')}>
                       <div className="mb-2 flex items-start justify-between gap-3">
                         <div className="flex items-center gap-2">
                           {completed ? (

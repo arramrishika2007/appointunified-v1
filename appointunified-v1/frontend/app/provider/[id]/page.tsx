@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { format } from 'date-fns'
-import { ArrowLeft, Calendar, Clock, DollarSign, MapPin, Share2, Star } from 'lucide-react'
+import { ArrowLeft, Calendar, Clock, DollarSign, MapPin, Monitor, Share2, Star } from 'lucide-react'
 import Link from 'next/link'
 import { Navbar } from '@/components/layout/Navbar'
 import { professionalsApi } from '@/lib/api'
@@ -166,7 +166,7 @@ export default function ProviderProfilePage() {
                           {svc.description && <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">{svc.description}</p>}
                           <div className="flex items-center gap-3 mt-2 text-[11px] text-slate-400 font-medium">
                             <span className="flex items-center gap-1"><Clock size={11} /> {svc.durationMinutes}m</span>
-                            {svc.isVirtual && <span>🖥️ Virtual</span>}
+                            {svc.isVirtual && <span className="inline-flex items-center gap-1"><Monitor size={11} /> Virtual</span>}
                           </div>
                         </div>
                         <div className="flex items-center gap-3">

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { addDays, format, isBefore, startOfDay, startOfMonth } from 'date-fns'
-import { ArrowLeft, Calendar, Check, Clock, Loader2, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Calendar, Check, Clock, FileText, Loader2, MessageSquare, Monitor } from 'lucide-react'
 import Link from 'next/link'
 import { Navbar } from '@/components/layout/Navbar'
 import { appointmentsApi, professionalsApi, waitlistApi } from '@/lib/api'
@@ -222,8 +222,8 @@ export default function BookingPage() {
                             {svc.description && <p className="text-sm text-slate-500 mt-1 line-clamp-2 leading-relaxed">{svc.description}</p>}
                             <div className="flex items-center gap-3 mt-3 text-[11px] text-slate-400 font-medium">
                               <span className="flex items-center gap-1"><Clock size={12} /> {svc.durationMinutes} min</span>
-                              {svc.isVirtual && <span>🖥️ Virtual</span>}
-                              {svc.requiresDocuments && <span>📄 Documents req.</span>}
+                              {svc.isVirtual && <span className="inline-flex items-center gap-1"><Monitor size={11} /> Virtual</span>}
+                              {svc.requiresDocuments && <span className="inline-flex items-center gap-1"><FileText size={11} /> Documents req.</span>}
                             </div>
                           </div>
                           <span className="font-bold text-slate-900 ml-4 bg-slate-50 px-3 py-1.5 rounded-lg group-hover:bg-brand-100 group-hover:text-brand-700 transition-colors">{formatCurrency(svc.price)}</span>
