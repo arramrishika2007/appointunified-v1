@@ -35,6 +35,7 @@ public class AppointmentService {
     private final NotificationService notificationService;
     private final BehaviorScoringService behaviorScoringService;
     private final WaitlistService waitlistService;
+    private final WorkflowEngineService workflowEngineService;
 
     @Value("${app.frontend.url:http://localhost:3000}")
     private String frontendUrl;
@@ -110,8 +111,20 @@ public class AppointmentService {
 
         appointment.setShareToken(shareToken);
         appointment.setShareExpiresAt(OffsetDateTime.now().plusDays(30));
+        if (request.getWorkflowInstanceId() != null) {
+            appointment.setWorkflowInstanceId(request.getWorkflowInstanceId());
+        }
 
         appointment = appointmentRepository.save(appointment);
+
+        if (request.getWorkflowInstanceId() != null) {
+            workflowEngineService.linkAppointmentToWorkflowStep(
+                    clientId,
+                    request.getWorkflowInstanceId(),
+                    request.getWorkflowStepOrder(),
+                    appointment
+            );
+        }
 
         log.info("Appointment created: {} for client {} with professional {}",
                 appointment.getId(), clientId, professional.getId());
@@ -206,6 +219,7 @@ public class AppointmentService {
         professional.setTotalCompleted(professional.getTotalCompleted() + 1);
         professionalRepository.save(professional);
         behaviorScoringService.registerCompletion(appointment);
+        workflowEngineService.handleAppointmentCompleted(appointment);
 
         return toSummaryResponse(appointmentRepository.save(appointment));
     }

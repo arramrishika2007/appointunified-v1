@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowRight, Calendar, Clock, Star, TrendingUp, Zap, HeartPulse, Landmark, Settings2, ShieldAlert } from 'lucide-react'
+import { ArrowRight, Calendar, Clock, GitBranch, Star, TrendingUp, Zap, HeartPulse, Landmark, Settings2, ShieldAlert } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { useAuthStore } from '@/lib/store'
 import { appointmentsApi, professionalsApi, usersApi } from '@/lib/api'
@@ -90,12 +90,20 @@ export default function DashboardPage() {
           </div>
 
           <div className="mb-8">
-            <Link
-              href="/dashboard/queue"
-              className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline"
-            >
-              Queue Preferences
-            </Link>
+            <div className="flex items-center gap-4 text-xs font-medium">
+              <Link
+                href="/dashboard/queue"
+                className="inline-flex items-center gap-1 text-brand-600 hover:underline"
+              >
+                Queue Preferences
+              </Link>
+              <Link
+                href="/dashboard/workflows"
+                className="inline-flex items-center gap-1 text-brand-600 hover:underline"
+              >
+                <GitBranch size={12} /> Workflow Plans
+              </Link>
+            </div>
           </div>
 
           {riskSummary && (

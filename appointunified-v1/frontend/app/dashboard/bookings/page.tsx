@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Calendar, Check, Clock, Copy, Download, ExternalLink, Loader2, RefreshCw, Trash2, Video, X } from 'lucide-react'
+import { Calendar, Check, Clock, Copy, Download, ExternalLink, GitBranch, Loader2, RefreshCw, Trash2, Video, X } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { appointmentsApi, waitlistApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store'
@@ -25,6 +25,7 @@ export default function MyBookingsPage() {
   const [loading, setLoading] = useState(true)
   const [shareLoading, setShareLoading] = useState<string | null>(null)
   const [paymentLoading, setPaymentLoading] = useState<string | null>(null)
+  const [workflowLoading, setWorkflowLoading] = useState<string | null>(null)
 
   const justBooked = searchParams.get('booked')
 
@@ -117,6 +118,19 @@ export default function MyBookingsPage() {
     }
   }
 
+  const handleOpenWorkflow = async (appointmentId: string) => {
+    setWorkflowLoading(appointmentId)
+    try {
+      const res = await appointmentsApi.getWorkflowContext(appointmentId)
+      const instanceId = res.data.data.instanceId
+      router.push(`/bookings/workflow/${instanceId}`)
+    } catch {
+      toast.error('No workflow context available for this appointment yet')
+    } finally {
+      setWorkflowLoading(null)
+    }
+  }
+
   const handleResumeDraft = (draft: DraftSummary) => {
     if (draft.professionalId) {
       router.push(`/booking/${draft.professionalId}${draft.serviceId ? `?service=${draft.serviceId}` : ''}`)
@@ -141,6 +155,9 @@ export default function MyBookingsPage() {
               <h1 className="text-2xl font-bold text-slate-900">My Bookings</h1>
               <p className="text-slate-500 text-sm mt-1">Manage all your appointments</p>
             </div>
+            <Link href="/dashboard/workflows" className="btn-ghost text-xs px-3 py-1.5">
+              <GitBranch size={13} /> Workflows
+            </Link>
           </div>
 
           {/* Just booked toast banner */}
@@ -206,8 +223,10 @@ export default function MyBookingsPage() {
                         onShare={handleShare}
                         onIcal={handleIcal}
                         onConfirmDeposit={handleConfirmDeposit}
+                        onOpenWorkflow={handleOpenWorkflow}
                         shareLoading={shareLoading === a.id}
                         paymentLoading={paymentLoading === a.id}
+                        workflowLoading={workflowLoading === a.id}
                       />
                     ))
                   )}
@@ -230,8 +249,10 @@ export default function MyBookingsPage() {
                         onShare={handleShare}
                         onIcal={handleIcal}
                         onConfirmDeposit={handleConfirmDeposit}
+                        onOpenWorkflow={handleOpenWorkflow}
                         shareLoading={shareLoading === a.id}
                         paymentLoading={paymentLoading === a.id}
+                        workflowLoading={workflowLoading === a.id}
                         isPast
                       />
                     ))
@@ -328,12 +349,14 @@ interface CardProps {
   onShare: (id: string) => void
   onIcal: (id: string) => void
   onConfirmDeposit: (id: string) => void
+  onOpenWorkflow: (id: string) => void
   shareLoading?: boolean
   paymentLoading?: boolean
+  workflowLoading?: boolean
   isPast?: boolean
 }
 
-function AppointmentCard({ appt, onCancel, onShare, onIcal, onConfirmDeposit, shareLoading, paymentLoading, isPast }: CardProps) {
+function AppointmentCard({ appt, onCancel, onShare, onIcal, onConfirmDeposit, onOpenWorkflow, shareLoading, paymentLoading, workflowLoading, isPast }: CardProps) {
   const statusCfg = STATUS_CONFIG[appt.status]
   const canCancel = !isPast && ['SCHEDULED'].includes(appt.status)
   const canTrackQueue = !isPast && ['IN_QUEUE', 'IN_PROGRESS'].includes(appt.status)
@@ -397,6 +420,17 @@ function AppointmentCard({ appt, onCancel, onShare, onIcal, onConfirmDeposit, sh
           >
             {paymentLoading ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
             I Paid Deposit
+          </button>
+        )}
+
+        {!isPast && (
+          <button
+            onClick={() => onOpenWorkflow(appt.id)}
+            disabled={workflowLoading}
+            className="btn-ghost text-xs px-3 py-1.5"
+          >
+            {workflowLoading ? <Loader2 size={13} className="animate-spin" /> : <GitBranch size={13} />}
+            Workflow
           </button>
         )}
 

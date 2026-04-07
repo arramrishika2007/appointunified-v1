@@ -113,6 +113,49 @@ export interface WaitlistSummary {
   expiresAt?: string
 }
 
+export interface WorkflowDefinition {
+  id: string
+  name: string
+  sector: Sector
+  description?: string
+  active: boolean
+  createdAt: string
+  steps: Array<Record<string, unknown>>
+}
+
+export interface WorkflowStepProgress {
+  order: number
+  label: string
+  serviceId?: string
+  professionalId?: string
+  autoBookNext: boolean
+  requiresCompletion: boolean
+  appointmentId?: string
+  appointmentStatus?: string
+  completedAt?: string
+}
+
+export interface WorkflowInstance {
+  id: string
+  workflowId: string
+  workflowName: string
+  status: 'IN_PROGRESS' | 'COMPLETED' | string
+  currentStep: number
+  totalSteps: number
+  nextStep?: WorkflowStepProgress
+  createdAt: string
+  steps: WorkflowStepProgress[]
+}
+
+export interface AppointmentWorkflowContext {
+  appointmentId: string
+  instanceId: string
+  workflowName: string
+  stepOrder: number
+  stepLabel: string
+  instanceStatus: string
+}
+
 // ─── Appointments ─────────────────────────────────────────────────────────────
 
 export interface AvailableSlot {
@@ -131,6 +174,9 @@ export interface AppointmentSummary {
   notes?: string
   virtual: boolean
   meetLink?: string
+  meetingToken?: string
+  depositStatus?: 'PENDING' | 'CONFIRMED' | 'DISPUTED' | 'REFUNDED'
+  finalPaymentStatus?: 'PENDING' | 'CONFIRMED' | 'DISPUTED' | 'REFUNDED'
   shareToken?: string
   icalUrl?: string
   createdAt: string

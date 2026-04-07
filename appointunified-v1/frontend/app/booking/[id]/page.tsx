@@ -24,6 +24,12 @@ export default function BookingPage() {
 
   const professionalId = params.id as string
   const preselectedServiceId = searchParams.get('service')
+  const workflowInstanceId = searchParams.get('workflowInstance') || searchParams.get('workflowInstanceId')
+  const workflowStepRaw = searchParams.get('workflowStep')
+  const workflowStepOrder = workflowStepRaw ? Number.parseInt(workflowStepRaw, 10) : undefined
+  const normalizedWorkflowStepOrder = workflowStepOrder !== undefined && Number.isFinite(workflowStepOrder)
+    ? workflowStepOrder
+    : undefined
 
   const [provider, setProvider] = useState<ProfessionalDetail | null>(null)
   const [selectedService, setSelectedService] = useState<ServiceSummary | null>(null)
@@ -105,6 +111,8 @@ export default function BookingPage() {
         startTime: selectedSlot.startTime,
         notes: notes || undefined,
         virtual: selectedService.isVirtual,
+        workflowInstanceId: workflowInstanceId || undefined,
+        workflowStepOrder: normalizedWorkflowStepOrder,
       })
       toast.success('Appointment booked! Confirmation sent to your email.')
       router.push(`/dashboard/bookings?booked=${res.data.data.id}`)

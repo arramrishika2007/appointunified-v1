@@ -32,6 +32,10 @@ public class AppointmentRequest {
 
         private Double clientLon;
 
+        private UUID workflowInstanceId;
+
+        private Integer workflowStepOrder;
+
         public UUID getProfessionalId() { return professionalId; }
         public void setProfessionalId(UUID professionalId) { this.professionalId = professionalId; }
         public UUID getServiceId() { return serviceId; }
@@ -48,6 +52,10 @@ public class AppointmentRequest {
         public void setClientLat(Double clientLat) { this.clientLat = clientLat; }
         public Double getClientLon() { return clientLon; }
         public void setClientLon(Double clientLon) { this.clientLon = clientLon; }
+        public UUID getWorkflowInstanceId() { return workflowInstanceId; }
+        public void setWorkflowInstanceId(UUID workflowInstanceId) { this.workflowInstanceId = workflowInstanceId; }
+        public Integer getWorkflowStepOrder() { return workflowStepOrder; }
+        public void setWorkflowStepOrder(Integer workflowStepOrder) { this.workflowStepOrder = workflowStepOrder; }
     }
 
     public static class Reschedule {

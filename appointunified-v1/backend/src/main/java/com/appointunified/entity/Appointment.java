@@ -63,6 +63,9 @@ public class Appointment {
     @Column(name = "meeting_token", length = 10)
     private String meetingToken;
 
+    @Column(name = "workflow_instance_id")
+    private UUID workflowInstanceId;
+
     @Column(name = "client_lat", precision = 10, scale = 7)
     private Double clientLat;
 
@@ -163,6 +166,8 @@ public class Appointment {
     public void setShareExpiresAt(OffsetDateTime shareExpiresAt) { this.shareExpiresAt = shareExpiresAt; }
     public String getMeetingToken() { return meetingToken; }
     public void setMeetingToken(String meetingToken) { this.meetingToken = meetingToken; }
+    public UUID getWorkflowInstanceId() { return workflowInstanceId; }
+    public void setWorkflowInstanceId(UUID workflowInstanceId) { this.workflowInstanceId = workflowInstanceId; }
     public Double getClientLat() { return clientLat; }
     public void setClientLat(Double clientLat) { this.clientLat = clientLat; }
     public Double getClientLon() { return clientLon; }

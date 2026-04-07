@@ -3,7 +3,9 @@ package com.appointunified.controller;
 import com.appointunified.dto.request.AppointmentRequest;
 import com.appointunified.dto.response.ApiResponse;
 import com.appointunified.dto.response.AppointmentResponse;
+import com.appointunified.dto.response.WorkflowResponse;
 import com.appointunified.service.AppointmentService;
+import com.appointunified.service.WorkflowEngineService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -26,6 +28,7 @@ import java.util.UUID;
 public class AppointmentController {
 
     private final AppointmentService appointmentService;
+    private final WorkflowEngineService workflowEngineService;
 
     @PostMapping
     @Operation(summary = "Create a new appointment")
@@ -135,6 +138,14 @@ public class AppointmentController {
     public ResponseEntity<ApiResponse<AppointmentResponse.MeetingJoinInfo>> validateMeetingToken(
             @PathVariable String meetingToken) {
         return ResponseEntity.ok(ApiResponse.ok(appointmentService.validateMeetingToken(meetingToken)));
+    }
+
+    @GetMapping("/{id}/workflow")
+    @Operation(summary = "Get workflow context for an appointment")
+    public ResponseEntity<ApiResponse<WorkflowResponse.AppointmentWorkflowContext>> getWorkflowContext(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UUID userId) {
+        return ResponseEntity.ok(ApiResponse.ok(workflowEngineService.getAppointmentWorkflowContext(id, userId)));
     }
 
     // NEW V1 FEATURE 3: Draft endpoints

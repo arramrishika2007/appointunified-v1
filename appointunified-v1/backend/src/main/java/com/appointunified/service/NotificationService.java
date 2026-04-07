@@ -4,6 +4,7 @@ import com.appointunified.entity.Appointment;
 import com.appointunified.entity.Professional;
 import com.appointunified.entity.NotificationPreference;
 import com.appointunified.entity.User;
+import com.appointunified.entity.WorkflowDefinition;
 import com.appointunified.repository.AppointmentRepository;
 import com.appointunified.repository.NotificationPreferenceRepository;
 import com.appointunified.repository.UserDeviceRepository;
@@ -316,6 +317,42 @@ public class NotificationService {
                     cancelledAppointment.getStartTime().format(FORMATTER)));
         } catch (Exception e) {
             log.error("Failed to send waitlist promotion notification: {}", e.getMessage());
+        }
+    }
+
+    @Async
+    public void sendWorkflowNextStepPrompt(User user,
+                                           WorkflowDefinition workflow,
+                                           int nextStepOrder,
+                                           Appointment completedAppointment) {
+        if (user.getEmail() == null && user.getPhone() == null) return;
+        try {
+            String subject = "Next step ready in workflow: " + workflow.getName();
+            String body = String.format("""
+                    Hi %s,
+
+                    Your workflow "%s" has advanced to step %d.
+                    Please book your next step to continue.
+
+                    Previous completed appointment:
+                    %s with %s
+
+                    Continue here: %s/bookings
+
+                    — AppointUnified
+                    """,
+                    user.getFullName(),
+                    workflow.getName(),
+                    nextStepOrder,
+                    completedAppointment.getService().getName(),
+                    completedAppointment.getProfessional().getDisplayName(),
+                    frontendUrl);
+
+            sendEmail(user, subject, body);
+            sendPushNotification(user, "Workflow advanced", "Step " + nextStepOrder + " is ready to book.");
+            sendChannelMessage(user, "Workflow update: your next step is ready to book.");
+        } catch (Exception e) {
+            log.error("Failed to send workflow next-step prompt: {}", e.getMessage());
         }
     }
 

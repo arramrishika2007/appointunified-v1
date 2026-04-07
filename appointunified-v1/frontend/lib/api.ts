@@ -127,6 +127,7 @@ export const professionalsApi = {
 export const appointmentsApi = {
   create: (data: object) => api.post('/appointments', data),
   getMyAppointments: (params?: object) => api.get('/appointments/me', { params }),
+  getWorkflowContext: (id: string) => api.get(`/appointments/${id}/workflow`),
   cancel: (id: string, data?: object) => api.put(`/appointments/${id}/cancel`, data || {}),
   reschedule: (id: string, data: object) => api.put(`/appointments/${id}/reschedule`, data),
   complete: (id: string) => api.post(`/appointments/${id}/complete`),
@@ -150,4 +151,10 @@ export const waitlistApi = {
   join: (data: object) => api.post('/waitlist', data),
   getMine: () => api.get('/waitlist/me'),
   cancel: (id: string) => api.delete(`/waitlist/${id}`),
+}
+
+export const workflowsApi = {
+  list: (params?: { sector?: string }) => api.get('/workflows', { params }),
+  start: (workflowId: string) => api.post('/workflows/start', { workflowId }),
+  getMyInstances: () => api.get('/workflows/instances/me'),
 }
