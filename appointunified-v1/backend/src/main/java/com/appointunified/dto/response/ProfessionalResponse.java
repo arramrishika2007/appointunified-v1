@@ -22,6 +22,10 @@ public class ProfessionalResponse {
         private String avatarUrl;
         private BigDecimal consultationFee;
         private String city;
+        private BigDecimal latitude;
+        private BigDecimal longitude;
+        private BigDecimal serviceAreaRadiusKm;
+        private BigDecimal distanceKm;
         private Boolean acceptingBookings;
         private Boolean allowOverbooking;
         private String upiId;
@@ -53,6 +57,14 @@ public class ProfessionalResponse {
         public void setConsultationFee(BigDecimal consultationFee) { this.consultationFee = consultationFee; }
         public String getCity() { return city; }
         public void setCity(String city) { this.city = city; }
+        public BigDecimal getLatitude() { return latitude; }
+        public void setLatitude(BigDecimal latitude) { this.latitude = latitude; }
+        public BigDecimal getLongitude() { return longitude; }
+        public void setLongitude(BigDecimal longitude) { this.longitude = longitude; }
+        public BigDecimal getServiceAreaRadiusKm() { return serviceAreaRadiusKm; }
+        public void setServiceAreaRadiusKm(BigDecimal serviceAreaRadiusKm) { this.serviceAreaRadiusKm = serviceAreaRadiusKm; }
+        public BigDecimal getDistanceKm() { return distanceKm; }
+        public void setDistanceKm(BigDecimal distanceKm) { this.distanceKm = distanceKm; }
         public Boolean getAcceptingBookings() { return acceptingBookings; }
         public void setAcceptingBookings(Boolean acceptingBookings) { this.acceptingBookings = acceptingBookings; }
         public Boolean getAllowOverbooking() { return allowOverbooking; }

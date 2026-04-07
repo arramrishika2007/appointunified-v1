@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { addDays, format, isBefore, startOfDay, startOfMonth } from 'date-fns'
-import { ArrowLeft, Calendar, Check, Clock, FileText, Loader2, MessageSquare, Monitor } from 'lucide-react'
+import { ArrowLeft, Calendar, Check, Clock, FileText, Loader2, MapPin, MessageSquare, Monitor } from 'lucide-react'
 import Link from 'next/link'
 import { Navbar } from '@/components/layout/Navbar'
-import { appointmentsApi, professionalsApi, waitlistApi } from '@/lib/api'
+import { appointmentsApi, geoApi, professionalsApi, waitlistApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store'
 import { AvailableSlot, ProfessionalDetail, ServiceSummary } from '@/types'
 import { cn, formatCurrency, formatTimeOnly } from '@/lib/utils'
@@ -42,6 +42,8 @@ export default function BookingPage() {
   const [submitting, setSubmitting] = useState(false)
   const [showWaitlistCta, setShowWaitlistCta] = useState(false)
   const [joiningWaitlist, setJoiningWaitlist] = useState(false)
+  const [travelInfo, setTravelInfo] = useState<{ distanceKm: number; durationMinutes: number } | null>(null)
+  const [travelLoading, setTravelLoading] = useState(false)
   const providerServices = Array.isArray(provider?.services) ? provider.services : []
 
   // Redirect if not authenticated
@@ -145,6 +147,33 @@ export default function BookingPage() {
     }
   }
 
+  const estimateTravel = async () => {
+    if (!provider?.latitude || !provider?.longitude || !navigator.geolocation) return
+    setTravelLoading(true)
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const res = await geoApi.getTravelTime({
+            fromLat: pos.coords.latitude,
+            fromLng: pos.coords.longitude,
+            toLat: Number(provider.latitude),
+            toLng: Number(provider.longitude),
+          })
+          setTravelInfo({
+            distanceKm: Number(res.data.data.distanceKm),
+            durationMinutes: Number(res.data.data.durationMinutes),
+          })
+        } catch {
+          toast.error('Could not estimate travel time')
+        } finally {
+          setTravelLoading(false)
+        }
+      },
+      () => setTravelLoading(false),
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
+  }
+
   if (!provider) {
     return (
       <>
@@ -243,6 +272,22 @@ export default function BookingPage() {
                   <button onClick={() => setStep(1)} className="btn-ghost text-xs">Change service</button>
                 </div>
                 <p className="text-sm text-slate-500 mb-5">Service: <span className="font-medium text-slate-800">{selectedService?.name}</span></p>
+
+                {selectedService && !selectedService.isVirtual && (
+                  <div className="mb-5 rounded-xl border border-slate-200 bg-white p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs text-slate-600 inline-flex items-center gap-1"><MapPin size={12} /> Offline appointment travel estimate</p>
+                      <button onClick={estimateTravel} className="btn-ghost text-xs" disabled={travelLoading}>
+                        {travelLoading ? <><Loader2 size={12} className="animate-spin" /> Estimating…</> : 'Estimate'}
+                      </button>
+                    </div>
+                    {travelInfo && (
+                      <p className="text-xs text-slate-500 mt-2">
+                        Professional is {travelInfo.distanceKm.toFixed(1)} km away · Estimated travel time: {travelInfo.durationMinutes} mins
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <BespokeBookingCalendar 
                     currentMonth={currentMonth}

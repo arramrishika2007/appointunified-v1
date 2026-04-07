@@ -41,6 +41,10 @@ export interface ProfessionalSummary {
   avatarUrl?: string
   consultationFee?: number
   city?: string
+  latitude?: number
+  longitude?: number
+  serviceAreaRadiusKm?: number
+  distanceKm?: number
   acceptingBookings: boolean
   allowOverbooking?: boolean
   // V1 Feature 2: Mood
@@ -76,6 +80,8 @@ export interface ProfessionalDetail extends ProfessionalSummary {
   coverUrl?: string
   licenseNumber?: string
   latitude?: number
+  longitude?: number
+  serviceAreaRadiusKm?: number
   virtual: boolean
   meetingToken?: string
   depositStatus?: 'PENDING' | 'CONFIRMED' | 'DISPUTED' | 'REFUNDED'
@@ -86,6 +92,12 @@ export interface ProfessionalDetail extends ProfessionalSummary {
   services: ServiceSummary[]
   weeklySchedule: AvailabilityDay[]
   joinedAt: string
+}
+
+export interface TravelTimeSummary {
+  distanceKm: number
+  durationMinutes: number
+  summary: string
 }
 
 export interface RiskSummary {

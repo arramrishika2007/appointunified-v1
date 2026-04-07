@@ -79,6 +79,17 @@ public class ProfessionalController {
                 professionalService.searchVerified(sector, city, query, pageable)));
     }
 
+    @GetMapping("/nearby")
+    @Operation(summary = "Get nearby professionals within radius")
+    public ResponseEntity<ApiResponse<List<ProfessionalResponse.Summary>>> nearby(
+            @RequestParam double lat,
+            @RequestParam double lng,
+            @RequestParam(defaultValue = "20") double radiusKm,
+            @RequestParam(required = false) String sector,
+            @RequestParam(defaultValue = "50") int limit) {
+        return ResponseEntity.ok(ApiResponse.ok(professionalService.searchNearby(lat, lng, radiusKm, sector, limit)));
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Get professional profile by ID")
     public ResponseEntity<ApiResponse<ProfessionalResponse.Detail>> getById(@PathVariable UUID id) {
@@ -106,6 +117,30 @@ public class ProfessionalController {
         return ResponseEntity.ok(ApiResponse.ok(professionalService.updateOverbooking(userId, id, enabled)));
     }
 
+    @PatchMapping("/{id}/service-area")
+    @PreAuthorize("hasRole('PROFESSIONAL')")
+    @Operation(summary = "Update professional service area radius and center")
+    public ResponseEntity<ApiResponse<ProfessionalResponse.Summary>> updateServiceArea(
+            @AuthenticationPrincipal UUID userId,
+            @PathVariable UUID id,
+            @Valid @RequestBody ServiceAreaRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                professionalService.updateServiceArea(userId, id, request.getRadiusKm(), request.getCenterLat(), request.getCenterLng())
+        ));
+    }
+
+    @PatchMapping("/me/service-area")
+    @PreAuthorize("hasRole('PROFESSIONAL')")
+    @Operation(summary = "Update own service area")
+    public ResponseEntity<ApiResponse<ProfessionalResponse.Summary>> updateMyServiceArea(
+            @AuthenticationPrincipal UUID userId,
+            @Valid @RequestBody ServiceAreaRequest request) {
+        ProfessionalResponse.Detail me = professionalService.getMyProfile(userId);
+        return ResponseEntity.ok(ApiResponse.ok(
+                professionalService.updateServiceArea(userId, me.getId(), request.getRadiusKm(), request.getCenterLat(), request.getCenterLng())
+        ));
+    }
+
     @PatchMapping("/me/overbooking")
     @PreAuthorize("hasRole('PROFESSIONAL')")
     @Operation(summary = "Toggle smart overbooking for own profile (me)")
@@ -122,5 +157,18 @@ public class ProfessionalController {
 
         public Boolean getAllowOverbooking() { return allowOverbooking; }
         public void setAllowOverbooking(Boolean allowOverbooking) { this.allowOverbooking = allowOverbooking; }
+    }
+
+    public static class ServiceAreaRequest {
+        private java.math.BigDecimal radiusKm;
+        private java.math.BigDecimal centerLat;
+        private java.math.BigDecimal centerLng;
+
+        public java.math.BigDecimal getRadiusKm() { return radiusKm; }
+        public void setRadiusKm(java.math.BigDecimal radiusKm) { this.radiusKm = radiusKm; }
+        public java.math.BigDecimal getCenterLat() { return centerLat; }
+        public void setCenterLat(java.math.BigDecimal centerLat) { this.centerLat = centerLat; }
+        public java.math.BigDecimal getCenterLng() { return centerLng; }
+        public void setCenterLng(java.math.BigDecimal centerLng) { this.centerLng = centerLng; }
     }
 }

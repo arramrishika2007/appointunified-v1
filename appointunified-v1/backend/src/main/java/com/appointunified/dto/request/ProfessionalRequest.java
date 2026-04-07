@@ -84,6 +84,7 @@ public class ProfessionalRequest {
         private String coverUrl;
         private Boolean acceptingBookings;
         private String upiId;
+        private BigDecimal serviceAreaRadiusKm;
 
         public String getDisplayName() { return displayName; }
         public void setDisplayName(String displayName) { this.displayName = displayName; }
@@ -111,6 +112,8 @@ public class ProfessionalRequest {
         public void setAcceptingBookings(Boolean acceptingBookings) { this.acceptingBookings = acceptingBookings; }
         public String getUpiId() { return upiId; }
         public void setUpiId(String upiId) { this.upiId = upiId; }
+        public BigDecimal getServiceAreaRadiusKm() { return serviceAreaRadiusKm; }
+        public void setServiceAreaRadiusKm(BigDecimal serviceAreaRadiusKm) { this.serviceAreaRadiusKm = serviceAreaRadiusKm; }
     }
 
     // NEW V1 FEATURE 2: Mood Status Update

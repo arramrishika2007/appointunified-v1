@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { Filter, Loader2, Search, SlidersHorizontal } from 'lucide-react'
+import { List, Loader2, LocateFixed, Map, Search } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { ProfessionalCard } from '@/components/provider/ProfessionalCard'
 import { professionalsApi } from '@/lib/api'
@@ -34,6 +34,9 @@ export default function ExplorePage() {
   const [query, setQuery] = useState('')
   const [city, setCity] = useState('')
   const [sort, setSort] = useState('ratingAvg,desc')
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [locating, setLocating] = useState(false)
 
   const fetchProfessionals = useCallback(async () => {
     setLoading(true)
@@ -57,6 +60,49 @@ export default function ExplorePage() {
       setLoading(false)
     }
   }, [sectorSlug, city, query, page, sort])
+
+  const locateAndFetchNearby = async () => {
+    if (!navigator.geolocation) return
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude
+        const lng = position.coords.longitude
+        setUserCoords({ lat, lng })
+        try {
+          const res = await professionalsApi.nearby({ lat, lng, radiusKm: 20, sector: sectorSlug, limit: 100 })
+          setProfessionals(res.data.data)
+          setTotalElements(res.data.data.length)
+          setTotalPages(1)
+          setPage(0)
+          setViewMode('map')
+        } finally {
+          setLocating(false)
+        }
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
+  }
+
+  const staticMapUrl = (() => {
+    if (professionals.length === 0) return null
+    const key = process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY
+    if (!key) return null
+
+    const points = professionals
+      .filter((p) => typeof p.latitude === 'number' && typeof p.longitude === 'number')
+      .slice(0, 20)
+
+    if (points.length === 0) return null
+
+    const center = userCoords ?? { lat: points[0].latitude as number, lng: points[0].longitude as number }
+    const markerParams = points
+      .map((p) => `marker=lonlat:${p.longitude},${p.latitude};type:material;color:%231D4ED8;size:small`)
+      .join('&')
+
+    return `https://maps.geoapify.com/v1/staticmap?style=osm-carto&width=1200&height=560&center=lonlat:${center.lng},${center.lat}&zoom=11&${markerParams}&apiKey=${key}`
+  })()
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -129,6 +175,21 @@ export default function ExplorePage() {
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
+
+            <button
+              onClick={() => setViewMode((v) => v === 'list' ? 'map' : 'list')}
+              className="btn-secondary w-full sm:w-auto"
+            >
+              {viewMode === 'list' ? <Map size={14} /> : <List size={14} />} {viewMode === 'list' ? 'Map View' : 'List View'}
+            </button>
+
+            <button
+              onClick={locateAndFetchNearby}
+              disabled={locating}
+              className="btn-secondary w-full sm:w-auto"
+            >
+              {locating ? <Loader2 size={14} className="animate-spin" /> : <LocateFixed size={14} />} Nearby
+            </button>
           </div>
 
           {/* Results */}
@@ -162,6 +223,18 @@ export default function ExplorePage() {
                   {totalElements.toLocaleString()} provider{totalElements !== 1 ? 's' : ''}
                 </p>
               </div>
+
+              {viewMode === 'map' && (
+                <div className="card p-3 mb-5 overflow-hidden">
+                  {staticMapUrl ? (
+                    <img src={staticMapUrl} alt="Providers map" className="w-full rounded-xl border border-slate-200" />
+                  ) : (
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
+                      Map preview unavailable because provider coordinates are missing.
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                 {professionals.map((p) => (

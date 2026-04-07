@@ -88,6 +88,12 @@ export function ProfessionalCard({ professional: p }: Props) {
         </div>
       )}
 
+      {typeof p.distanceKm === 'number' && (
+        <div className="text-xs text-slate-500 border-t border-slate-100 pt-2">
+          Approx. {p.distanceKm.toFixed(1)} km away
+        </div>
+      )}
+
       {/* CTA */}
       <div className={cn(
         'text-center py-2 rounded-lg text-sm font-semibold transition-colors',

@@ -113,6 +113,8 @@ export const devicesApi = {
 
 export const professionalsApi = {
   search: (params: object) => api.get('/professionals', { params }),
+  nearby: (params: { lat: number; lng: number; radiusKm?: number; sector?: string; limit?: number }) =>
+    api.get('/professionals/nearby', { params }),
   getById: (id: string) => api.get(`/professionals/${id}`),
   getMyProfile: () => api.get('/professionals/me'),
   getSlots: (id: string, date: string, serviceId?: string) =>
@@ -122,6 +124,15 @@ export const professionalsApi = {
   updateMood: (data: object) => api.patch('/professionals/me/mood', data),
   updateOverbooking: (allowOverbooking: boolean) =>
     api.patch('/professionals/me/overbooking', { allowOverbooking }),
+  updateServiceArea: (radiusKm: number, centerLat?: number, centerLng?: number) =>
+    api.patch('/professionals/me/service-area', { radiusKm, centerLat, centerLng }),
+}
+
+export const geoApi = {
+  getTravelTime: (params: { fromLat: number; fromLng: number; toLat: number; toLng: number }) =>
+    api.get('/geo/travel-time', { params }),
+  routeOptimize: (date?: string) =>
+    api.get('/geo/route-optimize', { params: date ? { date } : undefined }),
 }
 
 export const appointmentsApi = {

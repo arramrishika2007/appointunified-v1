@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Calendar, CheckCircle2, Clock, Loader2, TrendingUp, Users, Zap, AlertCircle } from 'lucide-react'
+import { Calendar, CheckCircle2, Clock, Loader2, MapPin, Save, TrendingUp, Users, Zap, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import { Navbar } from '@/components/layout/Navbar'
 import { useAuthStore } from '@/lib/store'
@@ -26,6 +26,10 @@ export default function ProfessionalDashboardPage() {
   const [showMoodPanel, setShowMoodPanel] = useState(false)
   const [allowOverbooking, setAllowOverbooking] = useState(false)
   const [overbookingUpdating, setOverbookingUpdating] = useState(false)
+  const [serviceRadiusKm, setServiceRadiusKm] = useState<number>(10)
+  const [officeLat, setOfficeLat] = useState<number | null>(null)
+  const [officeLng, setOfficeLng] = useState<number | null>(null)
+  const [savingArea, setSavingArea] = useState(false)
 
   useEffect(() => {
     if (!hasHydrated) return
@@ -57,6 +61,9 @@ export default function ProfessionalDashboardPage() {
         }
         if (myProfileRes?.data?.data) {
           setAllowOverbooking(!!myProfileRes.data.data.allowOverbooking)
+          setServiceRadiusKm(Number(myProfileRes.data.data.serviceAreaRadiusKm || 10))
+          setOfficeLat(myProfileRes.data.data.latitude ?? null)
+          setOfficeLng(myProfileRes.data.data.longitude ?? null)
         }
       })
       .catch(err => console.error("Critical dashboard load failure:", err))
@@ -88,6 +95,18 @@ export default function ProfessionalDashboardPage() {
       toast.error('Failed to update overbooking setting')
     } finally {
       setOverbookingUpdating(false)
+    }
+  }
+
+  const handleSaveServiceArea = async () => {
+    setSavingArea(true)
+    try {
+      await professionalsApi.updateServiceArea(serviceRadiusKm, officeLat ?? undefined, officeLng ?? undefined)
+      toast.success('Service area updated')
+    } catch {
+      toast.error('Could not update service area')
+    } finally {
+      setSavingArea(false)
     }
   }
 
@@ -232,6 +251,55 @@ export default function ProfessionalDashboardPage() {
                 <p className="text-xs text-slate-500 mt-0.5">{s.label}</p>
               </div>
             ))}
+          </div>
+
+          <div className="card p-5 mb-8">
+            <div className="flex items-center justify-between gap-4 mb-3">
+              <div>
+                <h2 className="font-semibold text-slate-900 flex items-center gap-2"><MapPin size={16} className="text-brand-600" /> Service Area</h2>
+                <p className="text-xs text-slate-500 mt-1">Set the maximum radius for offline service coverage.</p>
+              </div>
+              <button
+                onClick={handleSaveServiceArea}
+                disabled={savingArea}
+                className="btn-primary text-xs px-3 py-1.5"
+              >
+                {savingArea ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save
+              </button>
+            </div>
+            <div className="grid sm:grid-cols-3 gap-3">
+              <label className="flex flex-col gap-1 text-xs text-slate-600">
+                Radius (km)
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={serviceRadiusKm}
+                  onChange={(e) => setServiceRadiusKm(Number(e.target.value || 10))}
+                  className="input"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-slate-600">
+                Center Latitude
+                <input
+                  type="number"
+                  step="0.000001"
+                  value={officeLat ?? ''}
+                  onChange={(e) => setOfficeLat(e.target.value ? Number(e.target.value) : null)}
+                  className="input"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-slate-600">
+                Center Longitude
+                <input
+                  type="number"
+                  step="0.000001"
+                  value={officeLng ?? ''}
+                  onChange={(e) => setOfficeLng(e.target.value ? Number(e.target.value) : null)}
+                  className="input"
+                />
+              </label>
+            </div>
           </div>
 
           {/* Today's appointments */}

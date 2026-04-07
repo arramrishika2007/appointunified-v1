@@ -5,6 +5,7 @@ import com.appointunified.dto.response.AppointmentResponse;
 import com.appointunified.dto.response.ProfessionalResponse;
 import com.appointunified.dto.response.ServiceResponse;
 import com.appointunified.entity.Availability;
+import com.appointunified.entity.GeoZone;
 import com.appointunified.entity.Professional;
 import com.appointunified.entity.User;
 import com.appointunified.enums.Sector;
@@ -12,6 +13,7 @@ import com.appointunified.enums.VerificationStatus;
 import com.appointunified.exception.AppException;
 import com.appointunified.repository.AppointmentRepository;
 import com.appointunified.repository.AvailabilityRepository;
+import com.appointunified.repository.GeoZoneRepository;
 import com.appointunified.repository.ProfessionalRepository;
 import com.appointunified.repository.ServiceRepository;
 import com.appointunified.repository.UserRepository;
@@ -24,6 +26,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 
+import java.math.BigDecimal;
 import java.time.*;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -40,17 +43,20 @@ public class ProfessionalService {
     private final ServiceRepository serviceRepository;
     private final AvailabilityRepository availabilityRepository;
     private final AppointmentRepository appointmentRepository;
+    private final GeoZoneRepository geoZoneRepository;
 
         public ProfessionalService(ProfessionalRepository professionalRepository,
                                                                 UserRepository userRepository,
                                                                 ServiceRepository serviceRepository,
                                                                 AvailabilityRepository availabilityRepository,
-                                                                AppointmentRepository appointmentRepository) {
+                                                                AppointmentRepository appointmentRepository,
+                                                                GeoZoneRepository geoZoneRepository) {
                 this.professionalRepository = professionalRepository;
                 this.userRepository = userRepository;
                 this.serviceRepository = serviceRepository;
                 this.availabilityRepository = availabilityRepository;
                 this.appointmentRepository = appointmentRepository;
+                                        this.geoZoneRepository = geoZoneRepository;
         }
 
     public ProfessionalResponse.Detail getMyProfile(UUID userId) {
@@ -164,6 +170,7 @@ public class ProfessionalService {
         if (request.getCoverUrl() != null) professional.setCoverUrl(request.getCoverUrl());
         if (request.getAcceptingBookings() != null) professional.setAcceptingBookings(request.getAcceptingBookings());
         if (request.getUpiId() != null) professional.setUpiId(request.getUpiId());
+        if (request.getServiceAreaRadiusKm() != null) professional.setServiceAreaRadiusKm(request.getServiceAreaRadiusKm());
 
         // Geocoding on update
         if (request.getAddress() != null && (request.getLatitude() == null || request.getLongitude() == null)) {
@@ -175,6 +182,88 @@ public class ProfessionalService {
         }
 
         return toDetailResponse(professionalRepository.save(professional));
+    }
+
+    public List<ProfessionalResponse.Summary> searchNearby(double lat, double lng, double radiusKm, String sector, int limit) {
+        Sector sectorEnum = null;
+        if (sector != null && !sector.isBlank()) {
+            try {
+                sectorEnum = Sector.valueOf(sector.toUpperCase());
+            } catch (IllegalArgumentException ex) {
+                throw AppException.badRequest("Invalid sector filter. Allowed values: HEALTHCARE, GOVERNMENT, SERVICES");
+            }
+        }
+
+        List<Professional> all = professionalRepository.findByVerificationStatusAndAcceptingBookingsTrue(
+                VerificationStatus.APPROVED,
+                org.springframework.data.domain.Pageable.ofSize(Math.max(100, limit * 4))
+        ).getContent();
+
+        double requestedRadius = Math.max(1.0, radiusKm);
+        final Sector sectorFilter = sectorEnum;
+
+        return all.stream()
+                .filter(p -> p.getLatitude() != null && p.getLongitude() != null)
+                .filter(p -> sectorFilter == null || p.getSector() == sectorFilter)
+                .map(p -> {
+                    double distance = haversineKm(lat, lng, p.getLatitude().doubleValue(), p.getLongitude().doubleValue());
+                    BigDecimal providerRadius = p.getServiceAreaRadiusKm() != null ? p.getServiceAreaRadiusKm() : BigDecimal.valueOf(requestedRadius);
+                    boolean insideRequested = distance <= requestedRadius;
+                    boolean insideProviderArea = distance <= providerRadius.doubleValue();
+                    if (!insideRequested || !insideProviderArea) {
+                        return null;
+                    }
+                    ProfessionalResponse.Summary summary = toSummaryResponse(p);
+                    summary.setDistanceKm(BigDecimal.valueOf(distance).setScale(2, java.math.RoundingMode.HALF_UP));
+                    return summary;
+                })
+                .filter(Objects::nonNull)
+                .sorted(Comparator.comparing(ProfessionalResponse.Summary::getDistanceKm))
+                .limit(Math.max(1, limit))
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public ProfessionalResponse.Summary updateServiceArea(UUID userId,
+                                                          UUID professionalId,
+                                                          BigDecimal radiusKm,
+                                                          BigDecimal centerLat,
+                                                          BigDecimal centerLng) {
+        Professional professional = professionalRepository.findByUserId(userId)
+                .orElseThrow(() -> AppException.notFound("Professional profile not found"));
+
+        if (!professional.getId().equals(professionalId)) {
+            throw AppException.forbidden("You can only update your own service area");
+        }
+
+        if (radiusKm == null || radiusKm.doubleValue() <= 0.0) {
+            throw AppException.badRequest("radiusKm must be greater than 0");
+        }
+
+        BigDecimal lat = centerLat != null ? centerLat : professional.getLatitude();
+        BigDecimal lng = centerLng != null ? centerLng : professional.getLongitude();
+        if (lat == null || lng == null) {
+            throw AppException.badRequest("centerLat and centerLng are required when profile has no coordinates");
+        }
+
+        professional.setServiceAreaRadiusKm(radiusKm);
+        professional.setLatitude(lat);
+        professional.setLongitude(lng);
+        Professional savedProfessional = professionalRepository.save(professional);
+
+        GeoZone zone = geoZoneRepository.findByProfessionalIdAndActiveTrue(savedProfessional.getId())
+                .orElseGet(() -> {
+                    GeoZone created = new GeoZone();
+                    created.setProfessional(savedProfessional);
+                    created.setActive(true);
+                    return created;
+                });
+        zone.setCenterLat(lat);
+        zone.setCenterLng(lng);
+        zone.setRadiusKm(radiusKm);
+        geoZoneRepository.save(zone);
+
+        return toSummaryResponse(savedProfessional);
     }
 
     @Transactional
@@ -352,6 +441,9 @@ public class ProfessionalService {
         summary.setAvatarUrl(p.getAvatarUrl());
         summary.setConsultationFee(p.getConsultationFee());
         summary.setCity(p.getCity());
+        summary.setLatitude(p.getLatitude());
+        summary.setLongitude(p.getLongitude());
+        summary.setServiceAreaRadiusKm(p.getServiceAreaRadiusKm());
         summary.setAcceptingBookings(p.isAcceptingBookings());
         summary.setAvailabilityMood(p.getAvailabilityMood() != null ? p.getAvailabilityMood().name() : null);
         summary.setMoodNote(p.getMoodNote());
@@ -411,6 +503,7 @@ public class ProfessionalService {
         detail.setAddress(p.getAddress());
         detail.setLatitude(p.getLatitude());
         detail.setLongitude(p.getLongitude());
+        detail.setServiceAreaRadiusKm(p.getServiceAreaRadiusKm());
         detail.setAcceptingBookings(p.isAcceptingBookings());
         detail.setBio(p.getBio());
         detail.setQualification(p.getQualification());
@@ -533,5 +626,16 @@ public class ProfessionalService {
             log.warn("Geocoding failed for address: " + address, e);
         }
         return null;
+    }
+
+    private double haversineKm(double lat1, double lon1, double lat2, double lon2) {
+        final double R = 6371.0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
     }
 }
