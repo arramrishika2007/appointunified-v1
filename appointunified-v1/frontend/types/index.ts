@@ -189,6 +189,7 @@ export interface AppointmentSummary {
   meetingToken?: string
   depositStatus?: 'PENDING' | 'CONFIRMED' | 'DISPUTED' | 'REFUNDED'
   finalPaymentStatus?: 'PENDING' | 'CONFIRMED' | 'DISPUTED' | 'REFUNDED'
+  premiumFee?: number
   shareToken?: string
   icalUrl?: string
   createdAt: string
@@ -250,4 +251,100 @@ export interface PageResponse<T> {
   number: number
   first: boolean
   last: boolean
+}
+
+// ─── V9: Analytics ────────────────────────────────────────────────────────────
+
+export interface AnalyticsSummary {
+  totalBookings: number
+  completedBookings: number
+  cancelledBookings: number
+  noShows: number
+  totalRevenue: number
+  newUsers: number
+  newProfessionals: number
+  averageNoShowRate: number
+  averageCompletionRate: number
+  timeRange: string
+  sector?: string
+}
+
+export interface NoShowTrend {
+  professionalId: string
+  professionalName: string
+  date: string
+  totalAppointments: number
+  noShowCount: number
+  noShowRate: number
+  trend: 'UP' | 'DOWN' | 'STABLE'
+}
+
+export interface PeakHoursDataPoint {
+  hour: number
+  dayOfWeek: number
+  dayName: string
+  bookingCount: number
+  intensity: number
+}
+
+export interface RevenueBreakdown {
+  serviceType: string
+  amount: number
+  bookingCount: number
+  sector?: string
+  percentageOfTotal: number
+}
+
+export interface EarningsData {
+  date: string
+  amount: number
+  completedAppointments: number
+  averageRating: number
+}
+
+export interface KPISummary {
+  totalActiveUsers: number
+  totalActiveProfessionals: number
+  totalBookingsToday: number
+  completedBookingsToday: number
+  platformRevenueToday: number
+  averageNoShowRateToday: number
+  openSLABreachesCount: number
+  redisQueueDepth: number
+  activeWebSocketConnections: number
+  generatedAt: string
+}
+
+export interface AISuggestion {
+  id: string
+  suggestionTitle: string
+  suggestionDescription: string
+  expectedImpact: 'HIGH' | 'MEDIUM' | 'LOW'
+  suggestionData?: string
+  generatedAt: string
+  generatedByModel: string
+}
+
+export interface ReportExport {
+  id: string
+  exportType: 'BOOKINGS' | 'NO_SHOW_REPORT' | 'AUDIT_LOG' | 'VERIFICATION_REPORT'
+  fileName: string
+  fileUrl?: string
+  status: 'GENERATING' | 'READY' | 'FAILED' | 'EXPIRED'
+  fileSizeBytes?: number
+  errorMessage?: string
+  dateFilterStart?: string
+  dateFilterEnd?: string
+  sectorFilter?: string
+  createdAt: string
+  expiresAt: string
+}
+
+// ─── System Chat (FEATURE B: RAG-powered chatbot) ─────────────────────────────
+
+export interface SystemChatMessage {
+  question: string
+  answer: string
+  status: 'SUCCESS' | 'ERROR' | 'OFFLINE'
+  timestamp?: string
 }

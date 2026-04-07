@@ -36,6 +36,7 @@ public class AppointmentService {
     private final BehaviorScoringService behaviorScoringService;
     private final WaitlistService waitlistService;
     private final WorkflowEngineService workflowEngineService;
+    private final PriorityQueueService priorityQueueService;
 
     @Value("${app.frontend.url:http://localhost:3000}")
     private String frontendUrl;
@@ -220,6 +221,7 @@ public class AppointmentService {
         professionalRepository.save(professional);
         behaviorScoringService.registerCompletion(appointment);
         workflowEngineService.handleAppointmentCompleted(appointment);
+        priorityQueueService.resolveSLABreach(appointment.getId());
 
         return toSummaryResponse(appointmentRepository.save(appointment));
     }

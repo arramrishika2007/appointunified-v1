@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcType;
 import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -87,6 +88,12 @@ public class Appointment {
 
     @Column(name = "total_amount", precision = 10, scale = 2)
     private java.math.BigDecimal totalAmount;
+
+    @Column(name = "premium_fee", precision = 10, scale = 2)
+    private BigDecimal premiumFee = new BigDecimal("0");
+
+    @Column(name = "user_notes", columnDefinition = "TEXT")
+    private String userNotes;
 
     @Column(name = "cancellation_reason", columnDefinition = "TEXT")
     private String cancellationReason;
@@ -180,6 +187,11 @@ public class Appointment {
     public void setFinalPaymentStatus(com.appointunified.enums.PaymentStatus finalPaymentStatus) { this.finalPaymentStatus = finalPaymentStatus; }
     public java.math.BigDecimal getTotalAmount() { return totalAmount; }
     public void setTotalAmount(java.math.BigDecimal totalAmount) { this.totalAmount = totalAmount; }
+    public BigDecimal getPremiumFee() { return premiumFee; }
+    public void setPremiumFee(BigDecimal premiumFee) { this.premiumFee = premiumFee; }
+    public String getUserNotes() { return userNotes; }
+    public void setUserNotes(String userNotes) { this.userNotes = userNotes; }
+    public UUID getProfessionalId() { return professional != null ? professional.getId() : null; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }

@@ -142,6 +142,16 @@ export const appointmentsApi = {
   cancel: (id: string, data?: object) => api.put(`/appointments/${id}/cancel`, data || {}),
   reschedule: (id: string, data: object) => api.put(`/appointments/${id}/reschedule`, data),
   complete: (id: string) => api.post(`/appointments/${id}/complete`),
+}
+
+export const priorityApi = {
+  bookWithPriority: (data: object) => api.post('/priority/book', data),
+  getQueueCheck: (professionalId: string) => api.get(`/priority/queue-check/${professionalId}`),
+  getSLAAlerts: () => api.get('/priority/sla-alerts'),
+  adminOverride: (appointmentId: string, priorityTier: string) =>
+    api.post('/priority/override', null, { params: { appointmentId, overridePriority: priorityTier } }),
+  checkSLABreaches: () => api.post('/priority/check-sla-breaches'),
+}
   noShow: (id: string) => api.post(`/appointments/${id}/no-show`),
   confirmDeposit: (id: string) => api.post(`/appointments/${id}/confirm-deposit`),
   verifyFinalPayment: (id: string) => api.post(`/appointments/${id}/verify-final-payment`),
@@ -168,4 +178,28 @@ export const workflowsApi = {
   list: (params?: { sector?: string }) => api.get('/workflows', { params }),
   start: (workflowId: string) => api.post('/workflows/start', { workflowId }),
   getMyInstances: () => api.get('/workflows/instances/me'),
+}
+
+export const analyticsApi = {
+  getSummary: (sector?: string, range?: string) =>
+    api.get('/analytics/summary', { params: { sector, range: range || '7d' } }),
+  getNoShowTrends: (professionalId?: string, sector?: string, range?: string) =>
+    api.get('/analytics/no-show-trends', { params: { professionalId, sector, range: range || '30d' } }),
+  getPeakHours: (sector?: string, range?: string) =>
+    api.get('/analytics/peak-hours', { params: { sector, range: range || '30d' } }),
+  getRevenue: (sector?: string, range?: string) =>
+    api.get('/analytics/revenue', { params: { sector, range: range || '30d' } }),
+  getKPISummary: () => api.get('/analytics/kpi-summary'),
+  getAISuggestions: (professionalId: string) =>
+    api.get(`/analytics/slot-suggestions/${professionalId}`),
+  exportBookings: (dateStart: string, dateEnd: string, sector?: string) =>
+    api.post('/analytics/exports/bookings', null, { params: { dateStart, dateEnd, sector } }),
+  exportAuditLog: (dateStart: string, dateEnd: string) =>
+    api.post('/analytics/exports/audit-log', null, { params: { dateStart, dateEnd } }),
+  getExportStatus: (exportId: string) => api.get(`/analytics/exports/${exportId}/status`),
+}
+
+export const systemChatApi = {
+  askQuestion: (question: string, contextType?: string, contextId?: string) =>
+    api.post('/system-chat/ask', null, { params: { question, contextType: contextType || 'general', contextId } }),
 }
