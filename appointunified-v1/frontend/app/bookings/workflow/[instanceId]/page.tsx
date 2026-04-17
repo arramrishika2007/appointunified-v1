@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { CheckCircle2, CircleDashed, Clock3, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { Navbar } from '@/components/layout/Navbar'
+import { UserShell } from '@/components/layout/UserShell'
 import { workflowsApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store'
 import { WorkflowInstance, WorkflowStepProgress } from '@/types'
@@ -72,8 +72,7 @@ export default function WorkflowInstancePage({ params }: WorkflowInstancePagePro
   if (!isAuthenticated) return null
 
   return (
-    <>
-      <Navbar />
+    <UserShell>
       <main className="min-h-screen bg-slate-50">
         <div className="container-page max-w-4xl py-8">
           {loading ? (
@@ -178,6 +177,6 @@ export default function WorkflowInstancePage({ params }: WorkflowInstancePagePro
           )}
         </div>
       </main>
-    </>
+    </UserShell>
   )
 }

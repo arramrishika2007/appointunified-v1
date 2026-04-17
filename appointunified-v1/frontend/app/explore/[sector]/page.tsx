@@ -2,13 +2,15 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { List, Loader2, LocateFixed, Map, Search } from 'lucide-react'
-import { Navbar } from '@/components/layout/Navbar'
 import { ProfessionalCard } from '@/components/provider/ProfessionalCard'
 import { professionalsApi } from '@/lib/api'
 import { ProfessionalSummary, Sector } from '@/types'
 import { useAuthStore } from '@/lib/store'
 import { cn, SECTOR_CONFIG } from '@/lib/utils'
+
+const ProvidersMap = dynamic(() => import('@/components/provider/ProvidersMap'), { ssr: false })
 
 const SORT_OPTIONS = [
   { value: 'ratingAvg,desc', label: 'Top Rated' },
@@ -85,25 +87,6 @@ export default function ExplorePage() {
     )
   }
 
-  const staticMapUrl = (() => {
-    if (professionals.length === 0) return null
-    const key = process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY
-    if (!key) return null
-
-    const points = professionals
-      .filter((p) => typeof p.latitude === 'number' && typeof p.longitude === 'number')
-      .slice(0, 20)
-
-    if (points.length === 0) return null
-
-    const center = userCoords ?? { lat: points[0].latitude as number, lng: points[0].longitude as number }
-    const markerParams = points
-      .map((p) => `marker=lonlat:${p.longitude},${p.latitude};type:material;color:%231D4ED8;size:small`)
-      .join('&')
-
-    return `https://maps.geoapify.com/v1/staticmap?style=osm-carto&width=1200&height=560&center=lonlat:${center.lng},${center.lat}&zoom=11&${markerParams}&apiKey=${key}`
-  })()
-
   useEffect(() => {
     if (!isAuthenticated) {
       router.push('/auth/login')
@@ -114,20 +97,15 @@ export default function ExplorePage() {
 
   if (!sectorConfig) {
     return (
-      <>
-        <Navbar />
-        <div className="container-page py-20 text-center">
-          <h1 className="text-2xl font-bold text-slate-900 mb-2">Sector not found</h1>
-          <p className="text-slate-500">Try Healthcare, Government, or Services.</p>
-        </div>
-      </>
+      <div className="container-page py-20 text-center">
+        <h1 className="text-2xl font-bold text-slate-900 mb-2">Sector not found</h1>
+        <p className="text-slate-500">Try Healthcare, Government, or Services.</p>
+      </div>
     )
   }
 
   return (
-    <>
-      <Navbar />
-      <main>
+    <main>
         {/* Hero banner */}
         <div className={cn('py-12 border-b border-slate-200', sectorConfig.bg)}>
           <div className="container-page">
@@ -226,13 +204,14 @@ export default function ExplorePage() {
 
               {viewMode === 'map' && (
                 <div className="card p-3 mb-5 overflow-hidden">
-                  {staticMapUrl ? (
-                    <img src={staticMapUrl} alt="Providers map" className="w-full rounded-xl border border-slate-200" />
-                  ) : (
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
-                      Map preview unavailable because provider coordinates are missing.
+                  <div className="flex items-center justify-between gap-3 px-2 pb-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">Map View</p>
+                      <p className="text-xs text-slate-500">Showing providers with available location data.</p>
                     </div>
-                  )}
+                    <span className="badge text-xs bg-slate-100 text-slate-600">{professionals.length} results</span>
+                  </div>
+                  <ProvidersMap professionals={professionals} userCoords={userCoords} />
                 </div>
               )}
 
@@ -267,7 +246,6 @@ export default function ExplorePage() {
             </>
           )}
         </div>
-      </main>
-    </>
+    </main>
   )
 }

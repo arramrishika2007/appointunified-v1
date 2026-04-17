@@ -21,10 +21,10 @@ interface Props {
 
 const DELAY_PRESETS = [5, 10, 15, 20, 30, 45, 60]
 const BROADCAST_TYPES = [
-  { value: 'INFO',    label: 'ℹ️ Info' },
-  { value: 'WARNING', label: '⚠️ Warning' },
-  { value: 'DELAY',   label: '⏰ Delay' },
-  { value: 'UPDATE',  label: '📢 Update' },
+  { value: 'INFO',    label: 'Info' },
+  { value: 'WARNING', label: 'Warning' },
+  { value: 'DELAY',   label: 'Delay' },
+  { value: 'UPDATE',  label: 'Update' },
 ]
 
 export function QueueControlPanel({
@@ -152,13 +152,13 @@ export function QueueControlPanel({
           onClick={() => setShowDelayPanel(!showDelayPanel)}
           className={cn('btn-secondary text-xs py-2', showDelayPanel && 'bg-orange-50 border-orange-300 text-orange-700')}
         >
-          ⏰ Add Delay <ChevronDown size={12} />
+          Add Delay <ChevronDown size={12} />
         </button>
         <button
           onClick={() => setShowBroadcastPanel(!showBroadcastPanel)}
           className={cn('btn-secondary text-xs py-2', showBroadcastPanel && 'bg-blue-50 border-blue-300 text-blue-700')}
         >
-          📢 Broadcast <ChevronDown size={12} />
+          Broadcast <ChevronDown size={12} />
         </button>
       </div>
 

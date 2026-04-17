@@ -1,5 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
-import { TokenPair } from '@/types'
+import { PaymentOrderDetails, PaymentVerifyResult, TokenPair } from '@/types'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api'
 
@@ -8,6 +8,13 @@ export const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
   timeout: 15000,
 })
+
+const PUBLIC_AUTH_PATHS = new Set([
+  '/auth/login',
+  '/auth/signup',
+  '/auth/firebase/login',
+  '/auth/refresh',
+])
 
 // ─── Token storage helpers ─────────────────────────────────────────────────
 
@@ -26,19 +33,22 @@ export const clearTokens = () => {
   localStorage.removeItem('au_access')
   localStorage.removeItem('au_refresh')
   localStorage.removeItem('au_user')
+  localStorage.removeItem('au_auth')
 }
 
 // ─── Request interceptor: attach JWT ────────────────────────────────────────
 
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  const requestPath = config.url?.split('?')[0] ?? ''
   const token = getAccessToken()
-  if (token) {
+
+  if (token && !PUBLIC_AUTH_PATHS.has(requestPath)) {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
 })
 
-// ─── Response interceptor: auto-refresh on 401 ──────────────────────────────
+// ─── Response interceptor: auto-refresh on auth failures ─────────────────────
 
 let isRefreshing = false
 let failedQueue: Array<{ resolve: (v: string) => void; reject: (e: unknown) => void }> = []
@@ -55,8 +65,10 @@ api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
+    const status = error.response?.status
+    const shouldRefresh = status === 401 || status === 403
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (shouldRefresh && !originalRequest._retry) {
       const refreshToken = getRefreshToken()
       if (!refreshToken) {
         clearTokens()
@@ -137,11 +149,47 @@ export const geoApi = {
 
 export const appointmentsApi = {
   create: (data: object) => api.post('/appointments', data),
+  getById: (id: string) => api.get(`/appointments/${id}`),
   getMyAppointments: (params?: object) => api.get('/appointments/me', { params }),
+  getMyProfessionalAppointments: (params?: object) => api.get('/appointments/professional/me', { params }),
   getWorkflowContext: (id: string) => api.get(`/appointments/${id}/workflow`),
   cancel: (id: string, data?: object) => api.put(`/appointments/${id}/cancel`, data || {}),
   reschedule: (id: string, data: object) => api.put(`/appointments/${id}/reschedule`, data),
   complete: (id: string) => api.post(`/appointments/${id}/complete`),
+  noShow: (id: string) => api.post(`/appointments/${id}/no-show`),
+  confirmDeposit: (id: string) => api.post(`/appointments/${id}/confirm-deposit`),
+  verifyFinalPayment: (id: string) => api.post(`/appointments/${id}/verify-final-payment`),
+  getShareInfo: (id: string) => api.get(`/appointments/${id}/share`),
+  getBookingForm: (id: string) => api.get(`/appointments/${id}/booking-form`),
+  getByShareToken: (token: string) => api.get(`/appointments/share/${token}`),
+  validateMeetingToken: (token: string) => api.get(`/appointments/meeting/validate-token/${token}`),
+  // Drafts
+  saveDraft: (data: object) => api.post('/appointments/drafts', data),
+  getMyDrafts: () => api.get('/appointments/drafts'),
+  deleteDraft: (id: string) => api.delete(`/appointments/drafts/${id}`),
+}
+
+export const paymentsApi = {
+  getConfig: () =>
+    api.get<{ data: { configured: boolean; provider?: 'RAZORPAY' | 'STRIPE' | string; keyId?: string; reason?: string } }>('/payments/config'),
+  createDepositOrder: (appointmentId: string) =>
+    api.post<{ data: PaymentOrderDetails }>('/payments/deposit/create-order', { appointmentId }),
+  createBalanceOrder: (appointmentId: string) =>
+    api.post<{ data: PaymentOrderDetails }>('/payments/balance/create-order', { appointmentId }),
+  verifyDeposit: (payload: {
+    paymentOrderId: string
+    razorpayOrderId: string
+    razorpayPaymentId: string
+    razorpaySignature: string
+  }) => api.post<{ data: PaymentVerifyResult }>('/payments/deposit/verify', payload),
+  verifyBalance: (payload: {
+    paymentOrderId: string
+    razorpayOrderId: string
+    razorpayPaymentId: string
+    razorpaySignature: string
+  }) => api.post<{ data: PaymentVerifyResult }>('/payments/balance/verify', payload),
+  confirmDepositCheckout: (payload: { paymentOrderId: string; checkoutSessionId: string }) =>
+    api.post<{ data: PaymentVerifyResult }>('/payments/deposit/confirm-checkout', payload),
 }
 
 export const priorityApi = {
@@ -152,20 +200,16 @@ export const priorityApi = {
     api.post('/priority/override', null, { params: { appointmentId, overridePriority: priorityTier } }),
   checkSLABreaches: () => api.post('/priority/check-sla-breaches'),
 }
-  noShow: (id: string) => api.post(`/appointments/${id}/no-show`),
-  confirmDeposit: (id: string) => api.post(`/appointments/${id}/confirm-deposit`),
-  verifyFinalPayment: (id: string) => api.post(`/appointments/${id}/verify-final-payment`),
-  getShareInfo: (id: string) => api.get(`/appointments/${id}/share`),
-  getByShareToken: (token: string) => api.get(`/appointments/share/${token}`),
-  validateMeetingToken: (token: string) => api.get(`/appointments/meeting/validate-token/${token}`),
-  // Drafts
-  saveDraft: (data: object) => api.post('/appointments/drafts', data),
-  getMyDrafts: () => api.get('/appointments/drafts'),
-  deleteDraft: (id: string) => api.delete(`/appointments/drafts/${id}`),
-}
 
 export const usersApi = {
+  getMyProfile: () => api.get('/users/me'),
   getMyRiskSummary: () => api.get('/users/me/risk-summary'),
+}
+
+export const reviewsApi = {
+  getMyReviews: (page: number = 0, size: number = 20) =>
+    api.get('/reviews/me', { params: { page, size } }),
+  getMyReviewsCount: () => api.get('/reviews/me/count'),
 }
 
 export const waitlistApi = {
@@ -202,4 +246,39 @@ export const analyticsApi = {
 export const systemChatApi = {
   askQuestion: (question: string, contextType?: string, contextId?: string) =>
     api.post('/system-chat/ask', null, { params: { question, contextType: contextType || 'general', contextId } }),
+}
+
+export const chatApi = {
+  getChatHistory: (appointmentId: string, page: number = 0, pageSize: number = 20) =>
+    api.get(`/chat/${appointmentId}/messages`, { params: { page, pageSize } }),
+  sendMessage: (appointmentId: string, message: string) =>
+    api.post(`/chat/${appointmentId}/send`, { message }),
+  markAsRead: (appointmentId: string) =>
+    api.post(`/chat/${appointmentId}/read`),
+  getUnreadCount: () =>
+    api.get('/chat/unread-count'),
+  getThreads: () =>
+    api.get('/chat/threads'),
+}
+
+export const profilePictureApi = {
+  getUploadConfig: () =>
+    api.get('/profile-picture/upload-config'),
+  processUploadedImage: (cloudinaryPublicId: string, fileName: string) =>
+    api.post('/profile-picture/process', { cloudinaryPublicId, fileName }),
+  deleteAvatar: () =>
+    api.delete('/profile-picture'),
+}
+
+export const notificationsApi = {
+  getMyNotifications: (page: number = 0, pageSize: number = 20) =>
+    api.get('/notifications/me', { params: { page, pageSize } }),
+  getUnreadCount: () =>
+    api.get('/notifications/me/unread-count'),
+  getRecentNotifications: (days: number = 7) =>
+    api.get('/notifications/me/recent', { params: { days } }),
+  markAsRead: (id: string) =>
+    api.post(`/notifications/${id}/read`),
+  markAllAsRead: () =>
+    api.post('/notifications/read-all'),
 }

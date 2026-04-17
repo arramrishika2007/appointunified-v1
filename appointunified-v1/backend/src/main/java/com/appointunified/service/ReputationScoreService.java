@@ -81,7 +81,7 @@ public class ReputationScoreService {
         score.setResponseComponent(responseComponent.setScale(2, RoundingMode.HALF_UP));
         score.setRecencyComponent(recencyComponent.setScale(2, RoundingMode.HALF_UP));
         score.setOverallScore(overall.min(new BigDecimal("10.00")));
-        score.setTotalAppointments((int) appointmentRepository.countByProfessionalId(professionalId));
+        score.setTotalAppointments((int) appointmentRepository.countByProfessional_Id(professionalId));
         score.setLastComputedAt(OffsetDateTime.now());
 
         return reputationScoreRepository.save(score);

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { CheckCircle, ExternalLink, FileText, Loader2, Search, ShieldAlert, XCircle } from 'lucide-react'
-import { Navbar } from '@/components/layout/Navbar'
+import { AdminShell } from '@/components/layout/AdminShell'
 import { useAuthStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -202,21 +202,19 @@ export default function AdminDashboardPage() {
 
   if (!hasHydrated) {
     return (
-      <>
-        <Navbar />
+      <AdminShell>
         <main className="min-h-screen bg-slate-50">
           <div className="container-page py-16 flex justify-center">
             <Loader2 size={28} className="animate-spin text-brand-600" />
           </div>
         </main>
-      </>
+      </AdminShell>
     )
   }
 
   return (
-    <>
-      <Navbar />
-      <main className="min-h-screen bg-slate-50 pt-20 sm:pt-24">
+    <AdminShell>
+      <main className="min-h-screen bg-slate-50">
         <div className="container-page py-6 sm:py-8">
 
           {/* Header */}
@@ -416,6 +414,6 @@ export default function AdminDashboardPage() {
           )}
         </div>
       </main>
-    </>
+    </AdminShell>
   )
 }

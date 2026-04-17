@@ -55,6 +55,9 @@ public class User {
     @Column(name = "avatar_url")
     private String avatarUrl;
 
+        @Column(name = "avatar_thumb_url")
+        private String avatarThumbUrl;
+
     @Column(name = "is_verified", nullable = false)
     private boolean verified = false;
 
@@ -184,6 +187,14 @@ public class User {
     public void setAvatarUrl(String avatarUrl) {
         this.avatarUrl = avatarUrl;
     }
+
+        public String getAvatarThumbUrl() {
+            return avatarThumbUrl;
+        }
+
+        public void setAvatarThumbUrl(String avatarThumbUrl) {
+            this.avatarThumbUrl = avatarThumbUrl;
+        }
 
     public boolean isVerified() {
         return verified;

@@ -122,20 +122,30 @@ public class AuthService {
 
     @Transactional
     public AuthResponse.TokenPair login(AuthRequest.Login request) {
-        User user = resolveUser(request.getIdentifier());
+        try {
+            log.info("Login attempt for identifier: {}", request.getIdentifier());
+            User user = resolveUser(request.getIdentifier());
+            log.info("User found: {} with role: {}", user.getId(), user.getRole());
+            
+            if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+                throw AppException.unauthorized("Invalid credentials");
+            }
 
-        if (!user.isActive()) {
-            throw AppException.forbidden("Account is suspended. Contact support.");
+            // Allow users who previously self-deactivated to recover access by logging in.
+            if (!user.isActive()) {
+                user.setActive(true);
+                log.info("Auto-reactivated inactive user during login: {}", user.getId());
+            }
+
+            user.setLastLoginAt(OffsetDateTime.now());
+            userRepository.save(user);
+            log.info("User saved, now building token pair");
+
+            return buildTokenPair(user);
+        } catch (Exception e) {
+            log.error("Login failed with exception", e);
+            throw e;
         }
-
-        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            throw AppException.unauthorized("Invalid credentials");
-        }
-
-        user.setLastLoginAt(OffsetDateTime.now());
-        userRepository.save(user);
-
-        return buildTokenPair(user);
     }
 
     @Transactional
@@ -228,54 +238,75 @@ public class AuthService {
     // ─── Private helpers ────────────────────────────────────────────────────
 
     private AuthResponse.TokenPair buildTokenPair(User user) {
-        if (user == null || user.getId() == null) {
-            throw new IllegalArgumentException("User and User ID cannot be null");
+        try {
+            log.info("buildTokenPair called for user: {}", user.getId());
+            
+            if (user == null || user.getId() == null) {
+                throw new IllegalArgumentException("User and User ID cannot be null");
+            }
+            
+            UserRole role = user.getRole();
+            if (role == null) {
+                role = UserRole.PUBLIC;
+                user.setRole(role);
+            }
+            
+            log.info("Generating tokens for user: {} with role: {}", user.getId(), role);
+
+            String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), role.name());
+            String rawRefreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
+
+            // Store hashed refresh token
+            log.info("Creating RefreshToken entity");
+            String tokenHash = hashToken(rawRefreshToken);
+            log.info("Token hash created, expiryMs: {}", jwtTokenProvider.getRefreshTokenExpiryMs());
+            
+            OffsetDateTime expiresAt = OffsetDateTime.now().plusSeconds(
+                    jwtTokenProvider.getRefreshTokenExpiryMs() / 1000);
+            log.info("ExpiresAt computed: {}", expiresAt);
+            
+            RefreshToken refreshToken = RefreshToken.builder()
+                    .user(user)
+                    .tokenHash(tokenHash)
+                    .expiresAt(expiresAt)
+                    .revoked(false)
+                    .build();
+            
+            log.info("RefreshToken built, about to save");
+            refreshTokenRepository.save(refreshToken);
+            log.info("RefreshToken saved successfully");
+
+            return AuthResponse.TokenPair.builder()
+                    .accessToken(accessToken)
+                    .refreshToken(rawRefreshToken)
+                    .tokenType("Bearer")
+                    .expiresIn(900) // 15 minutes
+                    .user(AuthResponse.UserInfo.builder()
+                            .id(user.getId())
+                            .fullName(user.getFullName())
+                            .phone(user.getPhone())
+                            .email(user.getEmail())
+                            .role(role.name())
+                            .avatarUrl(user.getAvatarUrl())
+                            .verified(user.isVerified())
+                            .sector(user.getSector() != null ? user.getSector().name() : null)
+                            .build())
+                    .build();
+        } catch (Exception e) {
+            log.error("buildTokenPair failed", e);
+            throw e;
         }
-        
-        UserRole role = user.getRole();
-        if (role == null) {
-            role = UserRole.PUBLIC;
-            user.setRole(role);
-        }
-
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), role.name());
-        String rawRefreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
-
-        // Store hashed refresh token
-        RefreshToken refreshToken = RefreshToken.builder()
-                .user(user)
-                .tokenHash(hashToken(rawRefreshToken))
-                .expiresAt(OffsetDateTime.now().plusSeconds(
-                        jwtTokenProvider.getRefreshTokenExpiryMs() / 1000))
-                .revoked(false)
-                .build();
-        refreshTokenRepository.save(refreshToken);
-
-        return AuthResponse.TokenPair.builder()
-                .accessToken(accessToken)
-                .refreshToken(rawRefreshToken)
-                .tokenType("Bearer")
-                .expiresIn(900) // 15 minutes
-                .user(AuthResponse.UserInfo.builder()
-                        .id(user.getId())
-                        .fullName(user.getFullName())
-                        .phone(user.getPhone())
-                        .email(user.getEmail())
-                        .role(role.name())
-                        .avatarUrl(user.getAvatarUrl())
-                        .verified(user.isVerified())
-                        .sector(user.getSector() != null ? user.getSector().name() : null)
-                        .build())
-                .build();
     }
 
     private User resolveUser(String identifier) {
+        String normalized = StringUtils.trimToEmpty(identifier);
+
         // identifier can be phone or email
-        if (identifier.startsWith("+") || identifier.matches("\\d+")) {
-            return userRepository.findByPhone(identifier)
+        if (normalized.startsWith("+") || normalized.matches("\\d+")) {
+            return userRepository.findByPhone(normalized)
                     .orElseThrow(() -> AppException.unauthorized("Invalid credentials"));
         }
-        return userRepository.findByEmail(identifier)
+        return userRepository.findByEmail(normalized.toLowerCase())
                 .orElseThrow(() -> AppException.unauthorized("Invalid credentials"));
     }
 

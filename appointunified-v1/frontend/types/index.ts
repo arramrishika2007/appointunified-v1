@@ -3,7 +3,21 @@
 export type UserRole = 'PUBLIC' | 'PROFESSIONAL' | 'ADMIN' | 'SUPER_ADMIN'
 export type Sector = 'HEALTHCARE' | 'GOVERNMENT' | 'SERVICES'
 export type VerificationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED'
-export type AppointmentStatus = 'DRAFT' | 'SCHEDULED' | 'IN_QUEUE' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW' | 'EXPIRED'
+export type AppointmentStatus =
+  | 'DRAFT'
+  | 'PENDING_DEPOSIT'
+  | 'DEPOSIT_PAID'
+  | 'CONFIRMED'
+  | 'SCHEDULED'
+  | 'IN_QUEUE'
+  | 'IN_MEETING'
+  | 'IN_PROGRESS'
+  | 'PENDING_BALANCE'
+  | 'PAID_FULL'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'NO_SHOW'
+  | 'EXPIRED'
 export type AppointmentPriority = 'NORMAL' | 'PREMIUM' | 'EMERGENCY'
 export type AvailabilityMood = 'AVAILABLE' | 'BUSY' | 'RUNNING_LATE' | 'TAKING_BREAKS' | 'DO_NOT_DISTURB'
 
@@ -77,6 +91,7 @@ export interface ProfessionalDetail extends ProfessionalSummary {
   bio?: string
   qualification?: string
   yearsExperience?: number
+  upiId?: string
   coverUrl?: string
   licenseNumber?: string
   latitude?: number
@@ -161,7 +176,7 @@ export interface WorkflowInstance {
 
 export interface AppointmentWorkflowContext {
   appointmentId: string
-  instanceId: string
+  instanceId: string | null
   workflowName: string
   stepOrder: number
   stepLabel: string
@@ -187,9 +202,13 @@ export interface AppointmentSummary {
   virtual: boolean
   meetLink?: string
   meetingToken?: string
+  clientLat?: number
+  clientLon?: number
+  distanceMeters?: number
   depositStatus?: 'PENDING' | 'CONFIRMED' | 'DISPUTED' | 'REFUNDED'
   finalPaymentStatus?: 'PENDING' | 'CONFIRMED' | 'DISPUTED' | 'REFUNDED'
   premiumFee?: number
+  totalAmount?: number
   shareToken?: string
   icalUrl?: string
   createdAt: string
@@ -251,6 +270,25 @@ export interface PageResponse<T> {
   number: number
   first: boolean
   last: boolean
+}
+
+export interface PaymentOrderDetails {
+  paymentOrderId: string
+  keyId: string
+  provider?: 'RAZORPAY' | 'STRIPE' | string
+  gatewayOrderId: string
+  checkoutUrl?: string | null
+  amount: number
+  currency: string
+  status: string
+}
+
+export interface PaymentVerifyResult {
+  paymentOrderId: string
+  paymentType: 'DEPOSIT' | 'BALANCE' | string
+  paymentStatus: 'PAID' | 'PENDING' | 'FAILED' | string
+  appointmentId: string
+  appointmentStatus: AppointmentStatus | string
 }
 
 // ─── V9: Analytics ────────────────────────────────────────────────────────────
@@ -345,6 +383,91 @@ export interface ReportExport {
 export interface SystemChatMessage {
   question: string
   answer: string
-  status: 'SUCCESS' | 'ERROR' | 'OFFLINE'
+  status: 'PENDING' | 'SUCCESS' | 'ERROR' | 'OFFLINE'
   timestamp?: string
+}
+
+// ─── Chat (FEATURE A: One-to-One Chat) ──────────────────────────────────────
+
+export interface ChatMessage {
+  id: string
+  appointmentId: string
+  senderId: string
+  senderName: string
+  receiverId: string
+  receiverName: string
+  message: string
+  isRead: boolean
+  sentAt: string
+  filtered: boolean
+  filterReason?: string
+}
+
+export interface ChatThreadItem {
+  appointmentId: string
+  appointmentStatus: AppointmentStatus
+  appointmentPriority: AppointmentPriority
+  startTime: string
+  endTime: string
+  virtual: boolean
+  serviceName: string
+  serviceDurationMinutes?: number
+  otherParticipantId: string
+  otherParticipantName: string
+  otherParticipantAvatarUrl?: string
+  otherParticipantRole: 'CLIENT' | 'PROFESSIONAL'
+  previewText: string
+  lastMessageAt: string
+  unreadCount: number
+  hasMessages: boolean
+}
+
+export interface UnreadCountResponse {
+  unreadCount: number
+}
+
+// ─── Profile Picture Upload (FEATURE C) ───────────────────────────────────
+
+export interface ProfilePictureUploadConfig {
+  cloudName: string
+  apiKey: string
+  timestamp: number
+  folder: string
+  signature: string
+  fileSizeLimit: string
+  acceptedFormats: string
+}
+
+export interface ProcessedAvatarResponse {
+  avatarUrl: string
+  avatarThumbUrl: string
+  cloudinaryPublicId: string
+}
+
+// ─── Notifications (FEATURE D: Notification Center) ───────────────────────
+
+export type NotificationType =
+  | 'APPOINTMENT'
+  | 'QUEUE'
+  | 'PAYMENT'
+  | 'CHAT'
+  | 'SYSTEM'
+  | 'VERIFICATION'
+  | 'WAITLIST'
+
+export interface NotificationItem {
+  id: string
+  type: NotificationType
+  title: string
+  message?: string
+  actionUrl?: string
+  isRead: boolean
+  isArchived: boolean
+  readAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface NotificationUnreadCountResponse {
+  unreadCount: number
 }

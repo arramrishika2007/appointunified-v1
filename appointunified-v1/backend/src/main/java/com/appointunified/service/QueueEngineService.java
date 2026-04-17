@@ -147,6 +147,9 @@ public class QueueEngineService {
         waitingTokens.forEach(token -> {
             token.setEstimatedWaitMins((token.getEstimatedWaitMins() != null ? token.getEstimatedWaitMins() : 0) + delayMinutes);
             tokenRepository.save(token);
+
+            Integer updatedEta = token.getEstimatedWaitMins() != null ? token.getEstimatedWaitMins() : 0;
+            notificationServiceV3Extension.sendDelayNotification(token.getAppointment(), delayMinutes, updatedEta);
         });
 
         // Persist delay log
@@ -184,6 +187,12 @@ public class QueueEngineService {
         if (isPaused(professional.getId())) throw AppException.badRequest("Queue is already paused.");
 
         redis.opsForValue().set(REDIS_KEY + professional.getId() + ":paused", "1");
+
+        List<QueueToken> waitingTokens = tokenRepository
+            .findByProfessionalIdAndStatusOrderByPosition(professional.getId(), "WAITING");
+        waitingTokens.forEach(token ->
+            notificationServiceV3Extension.sendQueuePausedNotification(token.getAppointment(), reason)
+        );
 
         QueuePauseLog pauseLog = QueuePauseLog.builder()
             .professional(professional)

@@ -1,13 +1,13 @@
 package com.appointunified.security;
 
 import io.jsonwebtoken.*;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
@@ -26,7 +26,10 @@ public class JwtTokenProvider {
     private long refreshTokenExpiryMs;
 
     private SecretKey getSigningKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
+        byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
+        if (keyBytes.length < 32) {
+            throw new IllegalStateException("JWT secret must be at least 32 characters for HS256.");
+        }
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
@@ -57,6 +60,28 @@ public class JwtTokenProvider {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
+
+    public String generateJitsiMeetingToken(UUID userId, String userName, String userAvatar, String roomName, boolean isModerator) {
+        Map<String, Object> userContext = Map.of(
+            "id", userId.toString(),
+            "name", userName != null ? userName : "Guest",
+            "avatar", userAvatar != null ? userAvatar : "",
+            "moderator", isModerator
+        );
+        Map<String, Object> context = Map.of("user", userContext);
+        
+        return Jwts.builder()
+                .subject("jitsi-subject")
+                .audience().add("jitsi").and()
+                .issuer("appointunified")
+                .claim("room", roomName)
+                .claim("context", context)
+                .issuedAt(new Date())
+                // Short expiry: 1 hour for the meeting
+                .expiration(new Date(System.currentTimeMillis() + 3600000))
+                .signWith(getSigningKey())
+                .compact();
     }
 
     public UUID getUserIdFromToken(String token) {

@@ -35,6 +35,9 @@ public class AppointmentResponse {
         private ProfessionalInfo professional;
         private ServiceInfo service;
         private ClientInfo client;
+        
+        // Payment details for online bookings (optional)
+        private PaymentInfo pendingPayment;
 
         public UUID getId() { return id; }
         public void setId(UUID id) { this.id = id; }
@@ -78,6 +81,8 @@ public class AppointmentResponse {
         public void setFinalPaymentStatus(String finalPaymentStatus) { this.finalPaymentStatus = finalPaymentStatus; }
         public BigDecimal getTotalAmount() { return totalAmount; }
         public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
+        public PaymentInfo getPendingPayment() { return pendingPayment; }
+        public void setPendingPayment(PaymentInfo pendingPayment) { this.pendingPayment = pendingPayment; }
     }
 
     public static class ProfessionalInfo {
@@ -143,6 +148,25 @@ public class AppointmentResponse {
         public void setIcalUrl(String icalUrl) { this.icalUrl = icalUrl; }
         public OffsetDateTime getExpiresAt() { return expiresAt; }
         public void setExpiresAt(OffsetDateTime expiresAt) { this.expiresAt = expiresAt; }
+    }
+
+    public static class BookingForm {
+        private UUID appointmentId;
+        private String bookingToken;
+        private Double distanceKm;
+        private OffsetDateTime generatedAt;
+        private String content;
+
+        public UUID getAppointmentId() { return appointmentId; }
+        public void setAppointmentId(UUID appointmentId) { this.appointmentId = appointmentId; }
+        public String getBookingToken() { return bookingToken; }
+        public void setBookingToken(String bookingToken) { this.bookingToken = bookingToken; }
+        public Double getDistanceKm() { return distanceKm; }
+        public void setDistanceKm(Double distanceKm) { this.distanceKm = distanceKm; }
+        public OffsetDateTime getGeneratedAt() { return generatedAt; }
+        public void setGeneratedAt(OffsetDateTime generatedAt) { this.generatedAt = generatedAt; }
+        public String getContent() { return content; }
+        public void setContent(String content) { this.content = content; }
     }
 
     // Available slots response
@@ -226,5 +250,43 @@ public class AppointmentResponse {
         public void setStartTime(OffsetDateTime startTime) { this.startTime = startTime; }
         public OffsetDateTime getEndTime() { return endTime; }
         public void setEndTime(OffsetDateTime endTime) { this.endTime = endTime; }
+    }
+
+    public static class PaymentInfo {
+        private UUID paymentOrderId;
+        private String keyId;
+        private String gatewayOrderId;
+        private BigDecimal depositAmount;
+        private BigDecimal totalAmount;
+        private String currency;
+        private String status;
+
+        public PaymentInfo() {}
+
+        public PaymentInfo(UUID paymentOrderId, String keyId, String gatewayOrderId, 
+                          BigDecimal depositAmount, BigDecimal totalAmount, String currency, String status) {
+            this.paymentOrderId = paymentOrderId;
+            this.keyId = keyId;
+            this.gatewayOrderId = gatewayOrderId;
+            this.depositAmount = depositAmount;
+            this.totalAmount = totalAmount;
+            this.currency = currency;
+            this.status = status;
+        }
+
+        public UUID getPaymentOrderId() { return paymentOrderId; }
+        public void setPaymentOrderId(UUID paymentOrderId) { this.paymentOrderId = paymentOrderId; }
+        public String getKeyId() { return keyId; }
+        public void setKeyId(String keyId) { this.keyId = keyId; }
+        public String getGatewayOrderId() { return gatewayOrderId; }
+        public void setGatewayOrderId(String gatewayOrderId) { this.gatewayOrderId = gatewayOrderId; }
+        public BigDecimal getDepositAmount() { return depositAmount; }
+        public void setDepositAmount(BigDecimal depositAmount) { this.depositAmount = depositAmount; }
+        public BigDecimal getTotalAmount() { return totalAmount; }
+        public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
+        public String getCurrency() { return currency; }
+        public void setCurrency(String currency) { this.currency = currency; }
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
     }
 }

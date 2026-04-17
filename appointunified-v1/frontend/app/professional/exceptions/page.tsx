@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { CalendarX, Loader2, Plus, Trash2 } from 'lucide-react'
-import { Navbar } from '@/components/layout/Navbar'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
@@ -43,7 +42,7 @@ export default function ExceptionsPage() {
 
   useEffect(() => {
     if (!isAuthenticated || user?.role !== 'PROFESSIONAL') {
-      router.push('/dashboard'); return
+      router.push('/professional/dashboard'); return
     }
     api.get('/availability/exceptions/me')
       .then(res => setExceptions(res.data.data))
@@ -84,7 +83,6 @@ export default function ExceptionsPage() {
 
   return (
     <>
-      <Navbar />
       <main className="min-h-screen bg-slate-50">
         <div className="container-page py-8 max-w-2xl">
 

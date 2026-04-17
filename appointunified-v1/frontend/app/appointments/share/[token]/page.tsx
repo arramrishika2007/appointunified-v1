@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { Calendar, CalendarDown, CheckCircle2, Clock, Link2, Loader2, MapPin, Monitor } from 'lucide-react'
+import { Calendar, CalendarDays, CheckCircle2, Clock, Link2, Loader2, MapPin, Monitor } from 'lucide-react'
 import Link from 'next/link'
 import { appointmentsApi } from '@/lib/api'
 import { AppointmentSummary } from '@/types'
@@ -139,7 +139,7 @@ export default function SharedAppointmentPage() {
               href={`${process.env.NEXT_PUBLIC_API_URL}/appointments/${appt.id}/ical`}
               className="btn-secondary w-full text-center inline-flex items-center justify-center gap-2"
             >
-              <CalendarDown size={15} /> Download to Calendar (.ics)
+              <CalendarDays size={15} /> Download to Calendar (.ics)
             </a>
             <Link href="/auth/signup" className="btn-primary w-full text-center">
               Book your own appointment →

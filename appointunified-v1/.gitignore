@@ -12,10 +12,25 @@ Desktop.ini
 
 # --- Env / secrets ---
 .env
+.env.*
 .env.local
 .env.*.local
 backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
 frontend/.env.local
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+*.crt
+*.cer
+*.pfx
+id_rsa
+id_dsa
+id_ed25519
 
 # --- Logs / runtime files ---
 *.log
@@ -67,3 +82,5 @@ temp/
 
 # Keep committed sample envs
 !.env.example
+!backend/.env.example
+!frontend/.env.example

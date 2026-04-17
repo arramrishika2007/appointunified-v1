@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader2 } from 'lucide-react'
-import { api } from '@/lib/api'
+import { Bell, Loader2, Mail, MessageCircle, Smartphone } from 'lucide-react'
+import { api, devicesApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
+import { generateFcmToken } from '@/lib/firebase-messaging'
 
 interface Prefs {
   emailEnabled: boolean
@@ -26,11 +27,25 @@ export function NotificationPreferences() {
 
   const toggle = async (field: keyof Prefs) => {
     if (!prefs) return
-    const updated = { ...prefs, [field]: !prefs[field as keyof Prefs] }
+    const toggledValue = !prefs[field as keyof Prefs]
+    const updated = { ...prefs, [field]: toggledValue }
     setPrefs(updated)
     setSaving(true)
     try {
-      await api.patch('/notifications/preferences', { [field]: !prefs[field as keyof Prefs] })
+      await api.patch('/notifications/preferences', { [field]: toggledValue })
+
+      if (field === 'pushEnabled' && toggledValue) {
+        const fcmToken = await generateFcmToken({ requestPermission: true })
+        if (!fcmToken) {
+          toast.error('Push permission was not granted. You can enable it from browser settings.')
+        } else {
+          await devicesApi.registerFcmToken({
+            fcmToken,
+            platform: 'web',
+            deviceName: typeof navigator !== 'undefined' ? navigator.userAgent : 'web',
+          })
+        }
+      }
     } catch {
       setPrefs(prefs) // revert
       toast.error('Failed to save preference')
@@ -60,11 +75,11 @@ export function NotificationPreferences() {
     )
   }
 
-  const CHANNELS: { field: keyof Prefs; label: string; desc: string; icon: string }[] = [
-    { field: 'emailEnabled',    label: 'Email',     desc: 'Confirmations, reminders, cancellations', icon: '📧' },
-    { field: 'smsEnabled',      label: 'SMS',       desc: 'Quick text alerts for time-sensitive updates', icon: '💬' },
-    { field: 'whatsappEnabled', label: 'WhatsApp',  desc: 'Queue updates and appointment reminders', icon: '📱' },
-    { field: 'pushEnabled',     label: 'Push',      desc: 'Browser and mobile push notifications', icon: '🔔' },
+  const CHANNELS: { field: keyof Prefs; label: string; desc: string; icon: typeof Mail }[] = [
+    { field: 'emailEnabled',    label: 'Email',     desc: 'Confirmations, reminders, cancellations', icon: Mail },
+    { field: 'smsEnabled',      label: 'SMS',       desc: 'Quick text alerts for time-sensitive updates', icon: MessageCircle },
+    { field: 'whatsappEnabled', label: 'WhatsApp',  desc: 'Queue updates and appointment reminders', icon: Smartphone },
+    { field: 'pushEnabled',     label: 'Push',      desc: 'Browser and mobile push notifications', icon: Bell },
   ]
 
   return (
@@ -78,7 +93,9 @@ export function NotificationPreferences() {
           {CHANNELS.map(ch => (
             <div key={ch.field} className="flex items-center justify-between">
               <div className="flex items-start gap-3">
-                <span className="text-lg leading-none mt-0.5">{ch.icon}</span>
+                <span className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                  <ch.icon size={16} />
+                </span>
                 <div>
                   <p className="text-sm font-medium text-slate-900">{ch.label}</p>
                   <p className="text-xs text-slate-500">{ch.desc}</p>

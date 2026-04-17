@@ -107,7 +107,7 @@ public class ComplaintService {
         escalation.setReason(request.resolutionNotes());
         complaintEscalationRepository.save(escalation);
 
-        notificationServiceV2Extension.sendComplaintResolvedNotice(complaint.getId().toString());
+                notificationServiceV2Extension.sendComplaintResolvedNotice(complaint.getId());
         return toView(complaint);
     }
 

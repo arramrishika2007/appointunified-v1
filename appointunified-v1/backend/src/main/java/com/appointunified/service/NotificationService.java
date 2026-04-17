@@ -5,7 +5,9 @@ import com.appointunified.entity.Professional;
 import com.appointunified.entity.NotificationPreference;
 import com.appointunified.entity.User;
 import com.appointunified.entity.WorkflowDefinition;
+import com.appointunified.dto.response.NotificationResponse;
 import com.appointunified.repository.AppointmentRepository;
+import com.appointunified.repository.NotificationRepository;
 import com.appointunified.repository.NotificationPreferenceRepository;
 import com.appointunified.repository.UserDeviceRepository;
 import com.appointunified.repository.UserRepository;
@@ -13,10 +15,14 @@ import com.appointunified.enums.UserRole;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
@@ -28,18 +34,21 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.UUID;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static java.net.URLEncoder.encode;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class NotificationService {
 
+    private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
+
     private final AppointmentRepository appointmentRepository;
+    private final NotificationRepository notificationRepository;
     private final JavaMailSender mailSender;
     private final NotificationPreferenceRepository preferenceRepository;
     private final UserDeviceRepository userDeviceRepository;
@@ -48,6 +57,25 @@ public class NotificationService {
     private final ObjectProvider<FirebaseMessaging> firebaseMessagingProvider;
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
+
+    public NotificationService(
+            AppointmentRepository appointmentRepository,
+            NotificationRepository notificationRepository,
+            JavaMailSender mailSender,
+            NotificationPreferenceRepository preferenceRepository,
+            UserDeviceRepository userDeviceRepository,
+            UserRepository userRepository,
+            ObjectMapper objectMapper,
+            ObjectProvider<FirebaseMessaging> firebaseMessagingProvider) {
+        this.appointmentRepository = appointmentRepository;
+        this.notificationRepository = notificationRepository;
+        this.mailSender = mailSender;
+        this.preferenceRepository = preferenceRepository;
+        this.userDeviceRepository = userDeviceRepository;
+        this.userRepository = userRepository;
+        this.objectMapper = objectMapper;
+        this.firebaseMessagingProvider = firebaseMessagingProvider;
+    }
 
     @Value("${app.mail.from}")
     private String fromEmail;
@@ -70,8 +98,95 @@ public class NotificationService {
     @Value("${TWILIO_FROM_NUMBER:}")
     private String twilioFromNumber;
 
+    @Value("${SUPABASE_URL:}")
+    private String supabaseUrl;
+
+    @Value("${SUPABASE_SERVICE_ROLE_KEY:}")
+    private String supabaseServiceRoleKey;
+
+    @Value("${app.supabase.notifications-table:notification_events}")
+    private String supabaseNotificationsTable;
+
     private static final DateTimeFormatter FORMATTER =
             DateTimeFormatter.ofPattern("EEE, MMM d yyyy 'at' h:mm a");
+
+    @Transactional
+    public com.appointunified.entity.Notification createNotification(
+            UUID userId,
+            String type,
+            String title,
+            String message,
+            String actionUrl) {
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            log.warn("Cannot create notification; user not found: {}", userId);
+            return null;
+        }
+
+        com.appointunified.entity.Notification.NotificationType parsedType;
+        try {
+            parsedType = com.appointunified.entity.Notification.NotificationType.valueOf(type.toUpperCase());
+        } catch (Exception ignored) {
+            parsedType = com.appointunified.entity.Notification.NotificationType.SYSTEM;
+        }
+
+        com.appointunified.entity.Notification notification = new com.appointunified.entity.Notification(
+                user,
+                parsedType,
+                title,
+                message,
+                actionUrl
+        );
+        com.appointunified.entity.Notification saved = notificationRepository.save(notification);
+        mirrorNotificationToSupabase(saved);
+        return saved;
+    }
+
+    @Transactional(readOnly = true)
+    public Page<NotificationResponse> getUserNotifications(UUID userId, int page, int pageSize) {
+        Pageable pageable = PageRequest.of(page, pageSize);
+        return notificationRepository.findByUserIdAndIsArchivedFalseOrderByCreatedAtDesc(userId, pageable)
+                .map(this::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public long getUnreadCount(UUID userId) {
+        return notificationRepository.countByUserIdAndIsReadFalseAndIsArchivedFalse(userId);
+    }
+
+    @Transactional
+    public void markNotificationAsRead(UUID notificationId) {
+        notificationRepository.markAsRead(notificationId);
+    }
+
+    @Transactional
+    public void markAllNotificationsAsRead(UUID userId) {
+        notificationRepository.markAllAsRead(userId);
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<NotificationResponse> getRecentNotifications(UUID userId, int days) {
+        OffsetDateTime cutoff = OffsetDateTime.now().minusDays(days);
+        return notificationRepository.findByUserIdAndIsArchivedFalseAndCreatedAtAfterOrderByCreatedAtDesc(userId, cutoff)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    private NotificationResponse toResponse(com.appointunified.entity.Notification notification) {
+        return new NotificationResponse(
+                notification.getId(),
+                notification.getType(),
+                notification.getTitle(),
+                notification.getMessage(),
+                notification.getActionUrl(),
+                notification.getIsRead(),
+                notification.getIsArchived(),
+                notification.getReadAt(),
+                notification.getCreatedAt(),
+                notification.getUpdatedAt()
+        );
+    }
 
     @Async
     public void sendWelcomeEmail(User user) {
@@ -99,15 +214,39 @@ public class NotificationService {
     }
 
     @Async
-    @Transactional(readOnly = true)
+    @Transactional
     public void sendBookingConfirmation(java.util.UUID appointmentId) {
-        Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Appointment not found: " + appointmentId));
+        Appointment appointment = appointmentRepository.findById(appointmentId).orElse(null);
+        if (appointment == null) {
+            log.warn("Skipping booking confirmation; appointment not found: {}", appointmentId);
+            return;
+        }
         User client = appointment.getClient();
+        User professionalUser = appointment.getProfessional() != null ? appointment.getProfessional().getUser() : null;
         if (client.getEmail() == null && client.getPhone() == null) return;
         try {
             String formattedTime = appointment.getStartTime().format(FORMATTER);
             String shareUrl = frontendUrl + "/appointments/share/" + appointment.getShareToken();
+            String bookingPath = "/dashboard/bookings/" + appointment.getId();
+            String proPath = "/professional/dashboard";
+
+            createNotification(
+                    client.getId(),
+                    "APPOINTMENT",
+                    "Appointment confirmed",
+                    appointment.getService().getName() + " with " + appointment.getProfessional().getDisplayName() + " on " + formattedTime,
+                    bookingPath
+            );
+
+            if (professionalUser != null) {
+                createNotification(
+                        professionalUser.getId(),
+                        "APPOINTMENT",
+                        "New appointment booked",
+                        "A client booked " + appointment.getService().getName() + " on " + formattedTime,
+                        proPath
+                );
+            }
 
             String subject = "✅ Appointment Confirmed — " + appointment.getService().getName();
             String body = String.format("""
@@ -146,25 +285,58 @@ public class NotificationService {
                     frontendUrl);
 
             sendEmail(client, subject, body);
-                sendPushNotification(client, "Appointment confirmed", appointment.getService().getName() + " with " + appointment.getProfessional().getDisplayName() + " on " + formattedTime);
+            sendPushNotification(client, "Appointment confirmed", appointment.getService().getName() + " with " + appointment.getProfessional().getDisplayName() + " on " + formattedTime);
             sendChannelMessage(client, String.format(
                     "Appointment confirmed: %s with %s on %s",
                     appointment.getService().getName(),
                     appointment.getProfessional().getDisplayName(),
                     formattedTime));
+
+            if (professionalUser != null) {
+                sendPushNotification(professionalUser, "New booking", appointment.getService().getName() + " on " + formattedTime);
+                sendChannelMessage(professionalUser, String.format(
+                        "New booking: %s at %s",
+                        appointment.getService().getName(),
+                        formattedTime));
+            }
         } catch (Exception e) {
             log.error("Failed to send booking confirmation: {}", e.getMessage());
         }
     }
 
     @Async
-    @Transactional(readOnly = true)
+    @Transactional
     public void sendCancellationNotification(java.util.UUID appointmentId) {
-        Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Appointment not found: " + appointmentId));
+        Appointment appointment = appointmentRepository.findById(appointmentId).orElse(null);
+        if (appointment == null) {
+            log.warn("Skipping cancellation notification; appointment not found: {}", appointmentId);
+            return;
+        }
         User client = appointment.getClient();
+        User professionalUser = appointment.getProfessional() != null ? appointment.getProfessional().getUser() : null;
         if (client.getEmail() == null && client.getPhone() == null) return;
         try {
+            String bookingPath = "/dashboard/bookings/" + appointment.getId();
+            String proPath = "/professional/dashboard";
+
+            createNotification(
+                    client.getId(),
+                    "APPOINTMENT",
+                    "Appointment cancelled",
+                    "Your appointment for " + appointment.getService().getName() + " was cancelled.",
+                    bookingPath
+            );
+
+            if (professionalUser != null) {
+                createNotification(
+                        professionalUser.getId(),
+                        "APPOINTMENT",
+                        "Appointment cancelled",
+                        "A client cancelled " + appointment.getService().getName() + ".",
+                        proPath
+                );
+            }
+
             String subject = "❌ Appointment Cancelled — " + appointment.getService().getName();
             String body = String.format("""
                     Hi %s,
@@ -188,24 +360,54 @@ public class NotificationService {
                     frontendUrl);
 
             sendEmail(client, subject, body);
-                sendPushNotification(client, "Appointment cancelled", "Your appointment for " + appointment.getService().getName() + " was cancelled.");
+            sendPushNotification(client, "Appointment cancelled", "Your appointment for " + appointment.getService().getName() + " was cancelled.");
             sendChannelMessage(client, String.format(
                     "Your appointment for %s was cancelled.",
                     appointment.getService().getName()));
+
+            if (professionalUser != null) {
+                sendPushNotification(professionalUser, "Appointment cancelled", appointment.getService().getName() + " was cancelled by client.");
+                sendChannelMessage(professionalUser, "Booking cancelled by client.");
+            }
         } catch (Exception e) {
             log.error("Failed to send cancellation notification: {}", e.getMessage());
         }
     }
 
     @Async
-    @Transactional(readOnly = true)
+    @Transactional
     public void sendRescheduleNotification(java.util.UUID appointmentId) {
-        Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Appointment not found: " + appointmentId));
+        Appointment appointment = appointmentRepository.findById(appointmentId).orElse(null);
+        if (appointment == null) {
+            log.warn("Skipping reschedule notification; appointment not found: {}", appointmentId);
+            return;
+        }
         User client = appointment.getClient();
+        User professionalUser = appointment.getProfessional() != null ? appointment.getProfessional().getUser() : null;
         if (client.getEmail() == null && client.getPhone() == null) return;
         try {
             String formattedTime = appointment.getStartTime().format(FORMATTER);
+            String bookingPath = "/dashboard/bookings/" + appointment.getId();
+            String proPath = "/professional/dashboard";
+
+            createNotification(
+                    client.getId(),
+                    "APPOINTMENT",
+                    "Appointment rescheduled",
+                    "Your " + appointment.getService().getName() + " appointment moved to " + formattedTime + ".",
+                    bookingPath
+            );
+
+            if (professionalUser != null) {
+                createNotification(
+                        professionalUser.getId(),
+                        "APPOINTMENT",
+                        "Appointment rescheduled",
+                        "An appointment was moved to " + formattedTime + ".",
+                        proPath
+                );
+            }
+
             String subject = "🔄 Appointment Rescheduled — " + appointment.getService().getName();
             String body = String.format("""
                     Hi %s,
@@ -227,11 +429,16 @@ public class NotificationService {
                     frontendUrl);
 
             sendEmail(client, subject, body);
-                sendPushNotification(client, "Appointment rescheduled", "Your appointment for " + appointment.getService().getName() + " was rescheduled to " + formattedTime + ".");
+            sendPushNotification(client, "Appointment rescheduled", "Your appointment for " + appointment.getService().getName() + " was rescheduled to " + formattedTime + ".");
             sendChannelMessage(client, String.format(
                     "Your appointment for %s was rescheduled to %s.",
                     appointment.getService().getName(),
                     formattedTime));
+
+            if (professionalUser != null) {
+                sendPushNotification(professionalUser, "Appointment rescheduled", "A booking moved to " + formattedTime + ".");
+                sendChannelMessage(professionalUser, "A booking was rescheduled.");
+            }
         } catch (Exception e) {
             log.error("Failed to send reschedule notification: {}", e.getMessage());
         }
@@ -286,6 +493,14 @@ public class NotificationService {
     public void sendWaitlistSpotAvailable(User user, Appointment cancelledAppointment) {
         if (user.getEmail() == null && user.getPhone() == null) return;
         try {
+            createNotification(
+                user.getId(),
+                "WAITLIST",
+                "Waitlist spot available",
+                "A slot opened for " + cancelledAppointment.getService().getName() + ". Book now.",
+                "/provider/" + cancelledAppointment.getProfessional().getId()
+            );
+
             String subject = "A spot just opened for " + cancelledAppointment.getService().getName();
             String body = String.format("""
                     Hi %s,
@@ -327,6 +542,14 @@ public class NotificationService {
                                            Appointment completedAppointment) {
         if (user.getEmail() == null && user.getPhone() == null) return;
         try {
+            createNotification(
+                user.getId(),
+                "SYSTEM",
+                "Workflow advanced",
+                "Step " + nextStepOrder + " is ready to book in workflow " + workflow.getName() + ".",
+                "/dashboard/workflows"
+            );
+
             String subject = "Next step ready in workflow: " + workflow.getName();
             String body = String.format("""
                     Hi %s,
@@ -390,6 +613,14 @@ public class NotificationService {
 
         for (User superAdmin : superAdmins) {
             try {
+            createNotification(
+                superAdmin.getId(),
+                "VERIFICATION",
+                subject,
+                "Professional " + professional.getDisplayName() + " was approved by "
+                    + (admin.getFullName() != null ? admin.getFullName() : admin.getPhone()) + ".",
+                "/super-admin/verifications"
+            );
                 sendEmail(superAdmin, subject, body);
                 sendPushNotification(superAdmin, subject, body);
             } catch (Exception ex) {
@@ -407,13 +638,17 @@ public class NotificationService {
             return;
         }
 
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(fromEmail);
-        message.setTo(user.getEmail());
-        message.setSubject(subject);
-        message.setText(body);
-        mailSender.send(message);
-        log.debug("Email sent to {} — Subject: {}", user.getEmail(), subject);
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(fromEmail);
+            message.setTo(user.getEmail());
+            message.setSubject(subject);
+            message.setText(body);
+            mailSender.send(message);
+            log.debug("Email sent to {} — Subject: {}", user.getEmail(), subject);
+        } catch (Exception e) {
+            log.warn("Email delivery failed for {}: {}", user.getEmail(), e.getMessage());
+        }
     }
 
     private void sendChannelMessage(User user, String message) {
@@ -428,14 +663,16 @@ public class NotificationService {
     }
 
     private NotificationPreference getPreferences(User user) {
-        return preferenceRepository.findByUserId(user.getId()).orElseGet(() -> NotificationPreference.builder()
-                .user(user)
-                .emailEnabled(true)
-                .smsEnabled(true)
-                .whatsappEnabled(false)
-                .pushEnabled(true)
-                .reminderHours((short) 24)
-                .build());
+        return preferenceRepository.findByUserId(user.getId()).orElseGet(() -> {
+            NotificationPreference defaults = new NotificationPreference();
+            defaults.setUser(user);
+            defaults.setEmailEnabled(true);
+            defaults.setSmsEnabled(true);
+            defaults.setWhatsappEnabled(false);
+            defaults.setPushEnabled(true);
+            defaults.setReminderHours((short) 24);
+            return defaults;
+        });
     }
 
     private boolean isEmailEnabled(User user) {
@@ -511,6 +748,50 @@ public class NotificationService {
         String token = java.util.Base64.getEncoder()
                 .encodeToString((username + ":" + password).getBytes(StandardCharsets.UTF_8));
         return "Basic " + token;
+    }
+
+    private void mirrorNotificationToSupabase(com.appointunified.entity.Notification notification) {
+        if (!isSupabaseMirrorConfigured()) {
+            return;
+        }
+
+        try {
+            String baseUrl = supabaseUrl.endsWith("/")
+                    ? supabaseUrl.substring(0, supabaseUrl.length() - 1)
+                    : supabaseUrl;
+            String endpoint = baseUrl + "/rest/v1/" + supabaseNotificationsTable;
+
+            String payload = objectMapper.writeValueAsString(java.util.Map.of(
+                    "notification_id", notification.getId().toString(),
+                    "user_id", notification.getUser().getId().toString(),
+                    "type", notification.getType().name(),
+                    "title", notification.getTitle(),
+                    "message", notification.getMessage() != null ? notification.getMessage() : "",
+                    "action_url", notification.getActionUrl() != null ? notification.getActionUrl() : "",
+                    "created_at", notification.getCreatedAt().toString()
+            ));
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(endpoint))
+                    .header("apikey", supabaseServiceRoleKey)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + supabaseServiceRoleKey)
+                    .header("Content-Type", "application/json")
+                    .header("Prefer", "return=minimal")
+                    .POST(HttpRequest.BodyPublishers.ofString(payload))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                log.warn("Supabase mirror failed for notification {}: HTTP {}", notification.getId(), response.statusCode());
+            }
+        } catch (Exception ex) {
+            log.warn("Supabase mirror failed for notification {}: {}", notification.getId(), ex.getMessage());
+        }
+    }
+
+    private boolean isSupabaseMirrorConfigured() {
+        return supabaseUrl != null && !supabaseUrl.isBlank()
+                && supabaseServiceRoleKey != null && !supabaseServiceRoleKey.isBlank();
     }
 
     private void sendPushNotification(User user, String title, String body) {

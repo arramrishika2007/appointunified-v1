@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { AlertTriangle, Loader2 } from 'lucide-react'
+import { AlertTriangle, BadgeAlert, Loader2 } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { complaintApi } from '@/lib/api-v2'
 import { COMPLAINT_CATEGORIES } from '@/lib/utils-v2'
@@ -74,7 +74,10 @@ export default function FileComplaintPage() {
 
           <div className="card p-6">
             <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 mb-6 text-sm text-amber-800">
-              <strong>⚠️ Important:</strong> Complaints are serious. False or malicious reports may result in action against your
+              <strong className="inline-flex items-center gap-2">
+                <BadgeAlert size={14} /> Important:
+              </strong>{' '}
+              Complaints are serious. False or malicious reports may result in action against your
               account. Only file if you have a genuine concern.
             </div>
 
@@ -121,7 +124,9 @@ export default function FileComplaintPage() {
                     <Loader2 size={16} className="animate-spin" /> Submitting…
                   </>
                 ) : (
-                  '🚨 Submit Complaint'
+                  <span className="inline-flex items-center gap-2">
+                    <BadgeAlert size={16} /> Submit Complaint
+                  </span>
                 )}
               </button>
             </form>

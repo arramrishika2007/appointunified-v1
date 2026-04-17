@@ -3,6 +3,7 @@ package com.appointunified.service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -23,6 +24,7 @@ import com.appointunified.entity.ReportExport;
 import com.appointunified.entity.User;
 import com.appointunified.repository.AISuggestionRepository;
 import com.appointunified.repository.AnalyticsSnapshotRepository;
+import com.appointunified.repository.ProfessionalRepository;
 import com.appointunified.repository.ReportExportRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -37,7 +39,7 @@ public class AnalyticsService {
     private final ReportExportRepository reportExportRepository;
     private final AISuggestionRepository aiSuggestionRepository;
     private final GroqService groqService;
-    private final ProfessionalService professionalService;
+    private final ProfessionalRepository professionalRepository;
     
     /**
      * Get analytics summary for a date range and sector
@@ -148,7 +150,7 @@ public class AnalyticsService {
      */
     @Transactional(readOnly = true)
     public List<AISuggestionResponse> getAISuggestionsForProfessional(UUID professionalId) {
-        List<AISuggestion> suggestions = aiSuggestionRepository.findByProfessionalIdAndIsActiveTrueOrderByGeneratedAtDesc(professionalId);
+        List<AISuggestion> suggestions = aiSuggestionRepository.findByProfessional_IdAndIsActiveTrueOrderByGeneratedAtDesc(professionalId);
         
         return suggestions.stream()
             .map(this::mapToAISuggestionResponse)
@@ -234,7 +236,14 @@ public class AnalyticsService {
             }
             
             // Check if already has suggestions from today
-            List<AISuggestion> todaysSuggestions = aiSuggestionRepository.findTodaysSuggestionsForProfessional(professionalId);
+            OffsetDateTime nowUtc = OffsetDateTime.now(ZoneOffset.UTC);
+            OffsetDateTime startOfDayUtc = nowUtc.toLocalDate().atStartOfDay().atOffset(ZoneOffset.UTC);
+            OffsetDateTime startOfNextDayUtc = startOfDayUtc.plusDays(1);
+
+            List<AISuggestion> todaysSuggestions = aiSuggestionRepository.findTodaysSuggestionsForProfessional(
+                    professionalId,
+                    startOfDayUtc,
+                    startOfNextDayUtc);
             if (!todaysSuggestions.isEmpty()) {
                 log.debug("Professional {} already has today's suggestions, skipping generation", professionalId);
                 return;
@@ -284,7 +293,7 @@ public class AnalyticsService {
             }
             
             // Get professional entity
-            var professional = professionalService.getProfessionalById(professionalId);
+            var professional = professionalRepository.findById(professionalId).orElse(null);
             if (professional == null) {
                 log.warn("Professional not found: {}", professionalId);
                 return;

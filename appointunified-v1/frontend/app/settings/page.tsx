@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Loader2, Save, Shield, Upload, User } from 'lucide-react'
-import { Navbar } from '@/components/layout/Navbar'
+import { UserShell } from '@/components/layout/UserShell'
 import { api } from '@/lib/api'
 import { uploadCareFile } from '@/lib/uploadcare'
 import { useAuthStore } from '@/lib/store'
@@ -87,8 +87,7 @@ export default function SettingsPage() {
   ]
 
   return (
-    <>
-      <Navbar />
+    <UserShell>
       <main className="min-h-screen bg-slate-50">
         <div className="container-page py-8 max-w-2xl">
 
@@ -236,6 +235,6 @@ export default function SettingsPage() {
           )}
         </div>
       </main>
-    </>
+    </UserShell>
   )
 }

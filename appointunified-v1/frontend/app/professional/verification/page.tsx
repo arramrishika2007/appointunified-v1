@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { AlertCircle, CheckCircle2, Clock, FileText, Loader2, RefreshCw } from 'lucide-react'
-import { Navbar } from '@/components/layout/Navbar'
+import { AlertCircle, CheckCircle2, Clock, FileText, Loader2, Lock, RefreshCw } from 'lucide-react'
 import { useAuthStore } from '@/lib/store'
 import { verificationApi } from '@/lib/api-v2'
 import { VerificationStatus, VerificationDocument, BadgeTier } from '@/types/v2'
@@ -18,6 +17,16 @@ const DOC_STATUS_CFG = {
   REJECTED: { icon: <AlertCircle size={14} />, color: 'text-red-600', bg: 'bg-red-50', label: 'Rejected' },
 }
 
+type DocStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+
+const normalizeDocStatus = (value: string | undefined): DocStatus | null => {
+  const normalized = (value ?? '').trim().toUpperCase()
+  if (normalized === 'PENDING' || normalized === 'APPROVED' || normalized === 'REJECTED') {
+    return normalized
+  }
+  return null
+}
+
 export default function VerificationStatusPage() {
   const router = useRouter()
   const { isAuthenticated, user, hasHydrated } = useAuthStore()
@@ -28,7 +37,7 @@ export default function VerificationStatusPage() {
   useEffect(() => {
     if (!hasHydrated) return
     if (!isAuthenticated || user?.role !== 'PROFESSIONAL') {
-      router.push('/dashboard')
+      router.push('/professional/dashboard')
       return
     }
     loadStatus()
@@ -45,7 +54,6 @@ export default function VerificationStatusPage() {
   if (!hasHydrated || loading) {
     return (
       <>
-        <Navbar />
         <div className="flex justify-center items-center min-h-[60vh]">
           <Loader2 size={28} className="animate-spin text-brand-600" />
         </div>
@@ -55,10 +63,44 @@ export default function VerificationStatusPage() {
 
   if (!status) return null
 
-  const sector = user?.sector ?? 'HEALTHCARE'
+  const sector = (user?.sector ?? 'HEALTHCARE').toUpperCase()
   const requiredDocs = SECTOR_REQUIRED_DOCS[sector] ?? []
-  const approvedDocTypes = new Set(status.documents.filter((d) => d.status === 'APPROVED').map((d) => d.docType))
-  const pendingDocTypes = new Set(status.documents.filter((d) => d.status === 'PENDING').map((d) => d.docType))
+
+  const latestDocByType = new Map<string, VerificationDocument>()
+  for (const doc of status.documents) {
+    const existing = latestDocByType.get(doc.docType)
+    if (!existing) {
+      latestDocByType.set(doc.docType, doc)
+      continue
+    }
+    if (new Date(doc.submittedAt).getTime() > new Date(existing.submittedAt).getTime()) {
+      latestDocByType.set(doc.docType, doc)
+    }
+  }
+
+  const effectiveStatusByDocType = new Map<string, DocStatus>()
+  latestDocByType.forEach((doc, docType) => {
+    const normalized = normalizeDocStatus(doc.status)
+    if (normalized) {
+      effectiveStatusByDocType.set(docType, normalized)
+    }
+  })
+
+  const approvedDocTypes = new Set(
+    Array.from(effectiveStatusByDocType.entries())
+      .filter(([, value]) => value === 'APPROVED')
+      .map(([docType]) => docType)
+  )
+  const pendingDocTypes = new Set(
+    Array.from(effectiveStatusByDocType.entries())
+      .filter(([, value]) => value === 'PENDING')
+      .map(([docType]) => docType)
+  )
+  const rejectedDocTypes = new Set(
+    Array.from(effectiveStatusByDocType.entries())
+      .filter(([, value]) => value === 'REJECTED')
+      .map(([docType]) => docType)
+  )
 
   const progress =
     requiredDocs.length > 0
@@ -69,29 +111,28 @@ export default function VerificationStatusPage() {
     {
       PENDING: {
         bg: 'bg-amber-50  border-amber-200',
-        icon: '⏳',
+        icon: <Clock size={18} className="text-amber-700" />,
         text: 'Under review — our team will verify within 24–48 hours.',
       },
       APPROVED: {
         bg: 'bg-emerald-50 border-emerald-200',
-        icon: '✅',
+        icon: <CheckCircle2 size={18} className="text-emerald-700" />,
         text: 'Verified! You can now accept bookings.',
       },
       REJECTED: {
         bg: 'bg-red-50   border-red-200',
-        icon: '❌',
+        icon: <AlertCircle size={18} className="text-red-700" />,
         text: 'Verification rejected. Review the feedback below and re-submit.',
       },
       SUSPENDED: {
         bg: 'bg-orange-50 border-orange-200',
-        icon: '🔒',
+        icon: <Lock size={18} className="text-orange-700" />,
         text: 'Account suspended. Contact support to resolve.',
       },
-    }[status.verificationStatus] ?? { bg: 'bg-slate-50 border-slate-200', icon: 'ℹ️', text: '' }
+    }[status.verificationStatus] ?? { bg: 'bg-slate-50 border-slate-200', icon: <FileText size={18} className="text-slate-700" />, text: '' }
 
   return (
     <>
-      <Navbar />
       <main className="min-h-screen bg-slate-50">
         <div className="container-page py-8 max-w-3xl">
           <div className="flex items-center justify-between mb-6">
@@ -105,7 +146,7 @@ export default function VerificationStatusPage() {
           </div>
 
           <div className={cn('card p-4 mb-6 border flex items-center gap-3', statusBannerCfg.bg)}>
-            <span className="text-2xl">{statusBannerCfg.icon}</span>
+            <span aria-hidden>{statusBannerCfg.icon}</span>
             <div>
               <p className="font-semibold text-slate-900">{status.verificationStatus}</p>
               <p className="text-sm text-slate-600">{statusBannerCfg.text}</p>
@@ -135,6 +176,7 @@ export default function VerificationStatusPage() {
                 const cfg = DOC_TYPE_CONFIG[docType]
                 const isApproved = approvedDocTypes.has(docType)
                 const isPending = pendingDocTypes.has(docType)
+                const isRejected = rejectedDocTypes.has(docType)
 
                 return (
                   <div key={docType}>
@@ -143,10 +185,10 @@ export default function VerificationStatusPage() {
                         <div
                           className={cn(
                             'h-5 w-5 rounded-full flex items-center justify-center text-white text-xs',
-                            isApproved ? 'bg-emerald-500' : isPending ? 'bg-amber-400' : 'bg-slate-300'
+                            isApproved ? 'bg-emerald-500' : isPending ? 'bg-amber-400' : isRejected ? 'bg-red-500' : 'bg-slate-300'
                           )}
                         >
-                          {isApproved ? '✓' : isPending ? '…' : '○'}
+                          {isApproved ? 'OK' : isPending ? '...' : isRejected ? 'X' : 'O'}
                         </div>
                         <span className="text-sm font-medium text-slate-900">{cfg.label}</span>
                         {!isApproved && !isPending && (
@@ -154,7 +196,8 @@ export default function VerificationStatusPage() {
                         )}
                       </div>
                       {isPending && <span className="text-xs text-amber-600 font-medium">Under review</span>}
-                      {isApproved && <span className="text-xs text-emerald-600 font-medium">✓ Verified</span>}
+                      {isRejected && <span className="text-xs text-red-600 font-medium">Rejected</span>}
+                      {isApproved && <span className="text-xs text-emerald-600 font-medium">Verified</span>}
                     </div>
 
                     {!isApproved && !isPending && (
@@ -188,7 +231,8 @@ export default function VerificationStatusPage() {
               <h2 className="font-semibold text-slate-900 mb-4">Submitted Documents</h2>
               <div className="space-y-3">
                 {status.documents.map((doc: VerificationDocument) => {
-                  const sc = DOC_STATUS_CFG[doc.status]
+                  const normalizedStatus = normalizeDocStatus(doc.status)
+                  const sc = (normalizedStatus ? DOC_STATUS_CFG[normalizedStatus] : DOC_STATUS_CFG.PENDING)
                   const typeCfg = DOC_TYPE_CONFIG[doc.docType]
                   return (
                     <div key={doc.id} className={cn('flex items-start justify-between gap-3 rounded-lg p-3 border', sc.bg)}>

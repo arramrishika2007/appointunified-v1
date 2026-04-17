@@ -1,9 +1,10 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { Menu, X, Activity } from 'lucide-react'
+import { Menu, X, MessageSquare, Calendar } from 'lucide-react'
 import { useAuthStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
 
@@ -55,8 +56,8 @@ export function Navbar() {
 
         {/* Minimal Logo */}
         <Link href="/" className="flex items-center gap-3 group">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-accent to-accent-light text-white shadow-soft group-hover:shadow-float transition-all duration-300 group-hover:-translate-y-0.5">
-            <Activity size={20} strokeWidth={2.5} />
+          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border border-white bg-white shadow-soft transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-float">
+            <Image src="/brand-logo.svg" alt="ABS logo" width={34} height={34} className="h-8 w-8 object-contain" priority />
           </div>
           <span className="text-[17px] font-extrabold tracking-tight text-text-primary hidden sm:block">
             Appoint<span className="text-accent">Unified</span>
@@ -87,6 +88,12 @@ export function Navbar() {
         <div className="flex items-center gap-4">
           {isAuthenticated ? (
             <div className="hidden sm:flex items-center gap-3">
+              <Link href="/dashboard/support" className="text-[14px] font-bold text-text-secondary hover:text-accent transition-colors px-2 inline-flex items-center gap-1.5">
+                <MessageSquare size={14} /> Support
+              </Link>
+              <Link href="/dashboard/bookings" className="text-[14px] font-bold text-text-secondary hover:text-accent transition-colors px-2 inline-flex items-center gap-1.5">
+                <Calendar size={14} /> Bookings
+              </Link>
               <button onClick={handleLogout} className="text-[14px] font-bold text-text-secondary hover:text-red-500 transition-colors px-2">
                 Log Out
               </button>
@@ -139,6 +146,8 @@ export function Navbar() {
                 </div>
               ) : (
                 <div className="mt-4 pt-4 border-t border-border flex flex-col gap-3">
+                  <Link href="/dashboard/support" className="btn-pastel-secondary w-full" onClick={() => setMenuOpen(false)}>Support</Link>
+                  <Link href="/dashboard/bookings" className="btn-pastel-secondary w-full" onClick={() => setMenuOpen(false)}>Bookings</Link>
                   {!pathname.includes('dashboard') && (
                     <Link 
                       href={user?.role === 'PROFESSIONAL' ? '/professional/dashboard' : user?.role === 'SUPER_ADMIN' ? '/super-admin/dashboard' : user?.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard'} 

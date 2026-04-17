@@ -93,7 +93,7 @@ function QueueTokenRow({ token, isMe }: { token: QueueTokenView; isMe: boolean }
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <p className={cn('text-sm font-semibold', isMe ? 'text-brand-700' : 'text-slate-700')}>
-            {isMe ? '👤 You — ' : ''}Position #{token.position}
+            {isMe ? 'You - ' : ''}Position #{token.position}
           </p>
         </div>
         {token.estimatedWaitMins != null && (
@@ -129,8 +129,10 @@ export function MyPositionWidget({ token, professionalName }: MyPositionWidgetPr
   if (token.status === 'CALLED') {
     return (
       <div className="card p-5 border-emerald-300 bg-emerald-50 text-center animate-pulse-soft">
-        <div className="text-4xl mb-2">🔔</div>
-        <p className="text-lg font-black text-emerald-700">It's your turn!</p>
+        <div className="mb-2 flex justify-center">
+          <CheckCircle2 size={28} className="text-emerald-600" />
+        </div>
+        <p className="text-lg font-black text-emerald-700">It&apos;s your turn!</p>
         <p className="text-sm text-emerald-600 mt-1">
           {professionalName} is ready for you. Please proceed now.
         </p>
@@ -190,10 +192,10 @@ export function MyPositionWidget({ token, professionalName }: MyPositionWidgetPr
 // ─── Broadcast Banner (Feature 5) ────────────────────────────────────────────
 
 const BROADCAST_STYLE: Record<BroadcastType, { bg: string; icon: string; color: string }> = {
-  INFO:    { bg: 'bg-blue-50 border-blue-200',   icon: 'ℹ️',  color: 'text-blue-700'   },
-  WARNING: { bg: 'bg-amber-50 border-amber-200', icon: '⚠️',  color: 'text-amber-700'  },
-  DELAY:   { bg: 'bg-orange-50 border-orange-200', icon: '⏰', color: 'text-orange-700' },
-  UPDATE:  { bg: 'bg-emerald-50 border-emerald-200', icon: '📢', color: 'text-emerald-700' },
+  INFO:    { bg: 'bg-blue-50 border-blue-200', icon: 'INFO', color: 'text-blue-700' },
+  WARNING: { bg: 'bg-amber-50 border-amber-200', icon: 'WARN', color: 'text-amber-700' },
+  DELAY:   { bg: 'bg-orange-50 border-orange-200', icon: 'DELAY', color: 'text-orange-700' },
+  UPDATE:  { bg: 'bg-emerald-50 border-emerald-200', icon: 'UPDATE', color: 'text-emerald-700' },
 }
 
 interface BroadcastBannerProps {
@@ -206,7 +208,7 @@ export function BroadcastBanner({ message, type, onDismiss }: BroadcastBannerPro
   const style = BROADCAST_STYLE[type]
   return (
     <div className={cn('rounded-xl border p-3 flex items-center gap-3 animate-slide-up', style.bg)}>
-      <span className="text-xl flex-shrink-0">{style.icon}</span>
+      <span className={cn('flex-shrink-0 rounded-md border border-current/20 px-1.5 py-0.5 text-[10px] font-semibold leading-none', style.color)}>{style.icon}</span>
       <p className={cn('text-sm flex-1', style.color)}>{message}</p>
       <button onClick={onDismiss} className="text-slate-400 hover:text-slate-600 text-xs flex-shrink-0">✕</button>
     </div>

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CheckCircle2, Loader2, Shield, XCircle, Search, Clock, Users } from 'lucide-react'
 import { format } from 'date-fns'
-import { Navbar } from '@/components/layout/Navbar'
+import { SuperAdminShell } from '@/components/layout/SuperAdminShell'
 import { useAuthStore } from '@/lib/store'
 import { verificationApi } from '@/lib/api-v2'
 import clsx from 'clsx'
@@ -70,10 +70,10 @@ export default function SuperAdminVerificationsPage() {
   if (!hasHydrated) return null
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Navbar />
+    <SuperAdminShell>
+      <div className="min-h-screen bg-slate-50">
       
-      <main className="container-page py-8 max-w-6xl pt-32">
+      <main className="container-page py-8 max-w-6xl">
         <div className="flex items-center gap-3 mb-6">
           <div className="h-10 w-10 rounded-xl bg-purple-100 flex items-center justify-center">
             <Shield size={20} className="text-purple-600" />
@@ -182,6 +182,7 @@ export default function SuperAdminVerificationsPage() {
           )}
         </div>
       </main>
-    </div>
+      </div>
+    </SuperAdminShell>
   )
 }

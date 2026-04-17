@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Activity, Clock, Users } from 'lucide-react'
-import { Navbar } from '@/components/layout/Navbar'
 import { useAuthStore } from '@/lib/store'
 import { useProfessionalQueue } from '@/hooks/useQueue'
 import { QueueBoard, BroadcastBanner } from '@/components/queue/QueueDisplay'
@@ -29,7 +28,7 @@ export default function ProfessionalQueuePage() {
 
   useEffect(() => {
     if (!isAuthenticated || user?.role !== 'PROFESSIONAL') {
-      router.push('/dashboard')
+      router.push('/professional/dashboard')
     }
   }, [isAuthenticated, user, router])
 
@@ -42,7 +41,6 @@ export default function ProfessionalQueuePage() {
 
   return (
     <>
-      <Navbar />
       <main className="min-h-screen bg-slate-50">
         <div className="container-page py-8 max-w-4xl">
 

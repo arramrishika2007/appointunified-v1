@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CheckCircle2, ExternalLink, Loader2, Search, Shield, XCircle, FileText, User } from 'lucide-react'
 import { format } from 'date-fns'
-import { Navbar } from '@/components/layout/Navbar'
+import { AdminShell } from '@/components/layout/AdminShell'
 import { useAuthStore } from '@/lib/store'
 import { verificationApi } from '@/lib/api-v2'
 import { PendingDocumentView } from '@/types/v2'
@@ -97,11 +97,11 @@ export default function AdminVerificationPage() {
   const selectedProf = selectedProfId ? grouped[selectedProfId] : null
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col h-screen">
-      <Navbar />
+    <AdminShell>
+      <div className="min-h-screen bg-slate-50 flex flex-col h-[calc(100vh-4rem)]">
       
       {/* Set dynamic height subtracting navbar roughly 72px */}
-      <main className="flex-1 flex overflow-hidden lg:flex-row flex-col pt-[72px]">
+      <main className="flex-1 flex overflow-hidden lg:flex-row flex-col">
         
         {/* Left Side: List */}
         <div className="w-full lg:w-1/3 xl:w-1/4 bg-white border-r border-slate-200 flex flex-col overflow-hidden h-full">
@@ -276,5 +276,6 @@ export default function AdminVerificationPage() {
         
       </main>
     </div>
+    </AdminShell>
   )
 }

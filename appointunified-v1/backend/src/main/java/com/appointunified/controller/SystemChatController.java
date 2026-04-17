@@ -1,29 +1,52 @@
 package com.appointunified.controller;
 
 import java.util.UUID;
+import java.util.Optional;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.appointunified.dto.response.SystemChatResponse;
+import com.appointunified.entity.User;
+import com.appointunified.repository.UserRepository;
 import com.appointunified.service.SystemChatService;
-import com.appointunified.security.AuthenticationHelper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @RestController
-@RequestMapping("/api/system-chat")
+@RequestMapping("/system-chat")
 @Slf4j
 @RequiredArgsConstructor
 public class SystemChatController {
     
     private final SystemChatService systemChatService;
-    private final AuthenticationHelper authenticationHelper;
+    private final UserRepository userRepository;
+
+    private User resolveCurrentUser(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null) {
+            return null;
+        }
+
+        String principal = authentication.getName();
+
+        try {
+            UUID userId = UUID.fromString(principal);
+            Optional<User> byId = userRepository.findById(userId);
+            if (byId.isPresent()) {
+                return byId.get();
+            }
+        } catch (IllegalArgumentException ignored) {
+            // Principal is not a UUID, try resolving as email for compatibility.
+        }
+
+        return userRepository.findByEmail(principal).orElse(null);
+    }
     
     /**
      * POST /api/system-chat/ask
@@ -36,7 +59,8 @@ public class SystemChatController {
     public ResponseEntity<SystemChatResponse> askQuestion(
             @RequestParam String question,
             @RequestParam(defaultValue = "general") String contextType,
-            @RequestParam(required = false) String contextId) {
+            @RequestParam(required = false) String contextId,
+            Authentication authentication) {
         
         try {
             if (question == null || question.isBlank()) {
@@ -45,7 +69,12 @@ public class SystemChatController {
                 );
             }
             
-            var currentUser = authenticationHelper.getCurrentUser();
+            User currentUser = resolveCurrentUser(authentication);
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body(
+                    new SystemChatResponse(question, "Unauthorized user", "ERROR")
+                );
+            }
             UUID contextUUID = null;
             
             if (contextId != null && !contextId.isBlank()) {

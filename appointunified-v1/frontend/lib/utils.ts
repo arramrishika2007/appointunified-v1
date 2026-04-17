@@ -24,6 +24,11 @@ export function formatTimeOnly(iso: string): string {
   return format(new Date(iso), 'h:mm a')
 }
 
+// Backward-compatible alias used by booking confirmation page.
+export function formatTime(iso: string): string {
+  return formatDateTime(iso)
+}
+
 export function timeAgo(iso: string): string {
   return formatDistanceToNow(new Date(iso), { addSuffix: true })
 }
@@ -59,14 +64,20 @@ export const MOOD_CONFIG: Record<AvailabilityMood, { label: string; color: strin
 // ─── Status helpers ──────────────────────────────────────────────────────────
 
 export const STATUS_CONFIG: Record<AppointmentStatus, { label: string; color: string; bg: string }> = {
-  DRAFT:       { label: 'Draft',       color: 'text-slate-600',  bg: 'bg-slate-100'  },
-  SCHEDULED:   { label: 'Scheduled',   color: 'text-blue-700',   bg: 'bg-blue-100'   },
-  IN_QUEUE:    { label: 'In Queue',    color: 'text-purple-700', bg: 'bg-purple-100' },
-  IN_PROGRESS: { label: 'In Progress', color: 'text-amber-700',  bg: 'bg-amber-100'  },
-  COMPLETED:   { label: 'Completed',   color: 'text-emerald-700',bg: 'bg-emerald-100'},
-  CANCELLED:   { label: 'Cancelled',   color: 'text-red-700',    bg: 'bg-red-100'    },
-  NO_SHOW:     { label: 'No-Show',     color: 'text-orange-700', bg: 'bg-orange-100' },
-  EXPIRED:     { label: 'Expired',     color: 'text-slate-500',  bg: 'bg-slate-100'  },
+  DRAFT:           { label: 'Draft',            color: 'text-slate-600',   bg: 'bg-slate-100' },
+  PENDING_DEPOSIT: { label: 'Pending Deposit',  color: 'text-orange-700',  bg: 'bg-orange-100' },
+  DEPOSIT_PAID:    { label: 'Deposit Paid',     color: 'text-cyan-700',    bg: 'bg-cyan-100' },
+  CONFIRMED:       { label: 'Confirmed',        color: 'text-sky-700',     bg: 'bg-sky-100' },
+  SCHEDULED:       { label: 'Scheduled',        color: 'text-blue-700',    bg: 'bg-blue-100' },
+  IN_QUEUE:        { label: 'In Queue',         color: 'text-purple-700',  bg: 'bg-purple-100' },
+  IN_MEETING:      { label: 'In Meeting',       color: 'text-indigo-700',  bg: 'bg-indigo-100' },
+  IN_PROGRESS:     { label: 'In Progress',      color: 'text-amber-700',   bg: 'bg-amber-100' },
+  PENDING_BALANCE: { label: 'Pending Balance',  color: 'text-rose-700',    bg: 'bg-rose-100' },
+  PAID_FULL:       { label: 'Paid Full',        color: 'text-teal-700',    bg: 'bg-teal-100' },
+  COMPLETED:       { label: 'Completed',        color: 'text-emerald-700', bg: 'bg-emerald-100' },
+  CANCELLED:       { label: 'Cancelled',        color: 'text-red-700',     bg: 'bg-red-100' },
+  NO_SHOW:         { label: 'No-Show',          color: 'text-orange-700',  bg: 'bg-orange-100' },
+  EXPIRED:         { label: 'Expired',          color: 'text-slate-500',   bg: 'bg-slate-100' },
 }
 
 // ─── Currency ────────────────────────────────────────────────────────────────

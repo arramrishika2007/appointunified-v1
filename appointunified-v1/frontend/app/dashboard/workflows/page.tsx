@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { CalendarPlus2, CheckCircle2, GitBranch, Loader2, PlayCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { Navbar } from '@/components/layout/Navbar'
+import { UserShell } from '@/components/layout/UserShell'
 import { workflowsApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store'
 import { WorkflowDefinition, WorkflowInstance } from '@/types'
@@ -68,8 +68,7 @@ export default function WorkflowsPage() {
   if (!isAuthenticated || !user) return null
 
   return (
-    <>
-      <Navbar />
+    <UserShell>
       <main className="min-h-screen bg-slate-50">
         <div className="container-page max-w-5xl py-8">
           <div className="mb-8 flex items-start justify-between gap-3">
@@ -185,6 +184,6 @@ export default function WorkflowsPage() {
           )}
         </div>
       </main>
-    </>
+    </UserShell>
   )
 }

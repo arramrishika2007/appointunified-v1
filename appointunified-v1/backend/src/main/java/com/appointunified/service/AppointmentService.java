@@ -16,6 +16,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.security.SecureRandom;
 import java.time.OffsetDateTime;
@@ -33,6 +35,7 @@ public class AppointmentService {
     private final UserRepository userRepository;
     private final BookingDraftRepository bookingDraftRepository;
     private final NotificationService notificationService;
+    private final GroqService groqService;
     private final BehaviorScoringService behaviorScoringService;
     private final WaitlistService waitlistService;
     private final WorkflowEngineService workflowEngineService;
@@ -40,6 +43,9 @@ public class AppointmentService {
 
     @Value("${app.frontend.url:http://localhost:3000}")
     private String frontendUrl;
+
+    @Value("${app.meeting.strict-window:false}")
+    private boolean strictMeetingJoinWindow;
 
     @Transactional
     @CacheEvict(cacheNames = "slotRecommendations", allEntries = true)
@@ -93,6 +99,12 @@ public class AppointmentService {
         appointment.setVirtual(request.isVirtual());
         appointment.setTotalAmount(service.getPrice());
 
+        // Offline-first policy: in-person bookings do not require payment confirmation gates.
+        if (!request.isVirtual()) {
+            appointment.setDepositStatus(com.appointunified.enums.PaymentStatus.CONFIRMED);
+            appointment.setFinalPaymentStatus(com.appointunified.enums.PaymentStatus.CONFIRMED);
+        }
+
         if (request.isVirtual()) {
             // Generate a 6-digit meeting token and keep join URL token-based.
             String token = String.format("%06d", new SecureRandom().nextInt(999999));
@@ -130,9 +142,57 @@ public class AppointmentService {
         log.info("Appointment created: {} for client {} with professional {}",
                 appointment.getId(), clientId, professional.getId());
 
-        // Send confirmation notifications async
-        notificationService.sendBookingConfirmation(appointment.getId());
+        // Send confirmation notifications only after the DB commit is successful.
+        final UUID createdAppointmentId = appointment.getId();
+        runAfterCommit(() -> notificationService.sendBookingConfirmation(createdAppointmentId));
 
+        return toSummaryResponse(appointment);
+    }
+
+    @Transactional
+    public AppointmentResponse.Summary lockSlot(UUID clientId, AppointmentRequest.Create request) {
+        User client = userRepository.findById(clientId)
+                .orElseThrow(() -> AppException.notFound("User not found"));
+
+        if (client.isBlockedForUnpaid()) {
+            throw AppException.forbidden("Your account is locked due to unpaid balances. Please clear them to book again.");
+        }
+
+        Professional professional = professionalRepository.findById(request.getProfessionalId())
+                .orElseThrow(() -> AppException.notFound("Professional not found"));
+
+        if (!professional.isAcceptingBookings()) {
+            throw AppException.badRequest("This professional is not currently accepting bookings");
+        }
+
+        com.appointunified.entity.Service service = serviceRepository.findById(request.getServiceId())
+                .orElseThrow(() -> AppException.notFound("Service not found"));
+
+        OffsetDateTime startTime = request.getStartTime();
+        OffsetDateTime endTime = startTime.plusMinutes(service.getDurationMinutes());
+
+        if (appointmentRepository.hasConflict(professional.getId(), startTime, endTime)) {
+            throw AppException.conflict("This time slot is no longer available. Please select another.");
+        }
+
+        Appointment appointment = new Appointment();
+        appointment.setClient(client);
+        appointment.setProfessional(professional);
+        appointment.setService(service);
+        appointment.setStartTime(startTime);
+        appointment.setEndTime(endTime);
+        // Lock slot specifically uses PENDING_DEPOSIT
+        appointment.setStatus(AppointmentStatus.PENDING_DEPOSIT);
+        appointment.setDepositStatus(com.appointunified.enums.PaymentStatus.PENDING);
+        appointment.setFinalPaymentStatus(com.appointunified.enums.PaymentStatus.PENDING);
+        
+        appointment.setPriority(request.getPriority() != null ? AppointmentPriority.valueOf(request.getPriority().toUpperCase()) : AppointmentPriority.NORMAL);
+        appointment.setNotes(request.getNotes());
+        appointment.setVirtual(request.isVirtual());
+        appointment.setTotalAmount(service.getPrice());
+
+        appointment = appointmentRepository.save(appointment);
+        log.info("Slot locked for appointment: {}", appointment.getId());
         return toSummaryResponse(appointment);
     }
 
@@ -143,10 +203,24 @@ public class AppointmentService {
     }
 
     @Transactional(readOnly = true)
+    public AppointmentResponse.Summary getMyAppointmentById(UUID appointmentId, UUID requesterId) {
+        Appointment appointment = findAndValidate(appointmentId, requesterId);
+        return toSummaryResponse(appointment);
+    }
+
+    @Transactional(readOnly = true)
     public Page<AppointmentResponse.Summary> getProfessionalAppointments(UUID professionalId, Pageable pageable) {
         return appointmentRepository.findByProfessionalIdOrderByStartTimeAsc(professionalId, pageable)
                 .map(this::toSummaryResponse);
     }
+
+        @Transactional(readOnly = true)
+        public Page<AppointmentResponse.Summary> getMyProfessionalAppointments(UUID professionalUserId, Pageable pageable) {
+        Professional professional = professionalRepository.findByUserId(professionalUserId)
+            .orElseThrow(() -> AppException.notFound("Professional not found"));
+        return appointmentRepository.findByProfessionalIdOrderByStartTimeAsc(professional.getId(), pageable)
+            .map(this::toSummaryResponse);
+        }
 
     @Transactional
     @CacheEvict(cacheNames = "slotRecommendations", allEntries = true)
@@ -168,7 +242,8 @@ public class AppointmentService {
         appointment.setCancelledAt(OffsetDateTime.now());
 
         appointment = appointmentRepository.save(appointment);
-        notificationService.sendCancellationNotification(appointment.getId());
+        final UUID cancelledAppointmentId = appointment.getId();
+        runAfterCommit(() -> notificationService.sendCancellationNotification(cancelledAppointmentId));
         behaviorScoringService.registerCancellation(appointment, request.getReason());
         waitlistService.notifyNextCandidate(appointment);
 
@@ -197,7 +272,8 @@ public class AppointmentService {
         appointment.setStatus(AppointmentStatus.SCHEDULED);
 
         appointment = appointmentRepository.save(appointment);
-        notificationService.sendRescheduleNotification(appointment.getId());
+        final UUID rescheduledAppointmentId = appointment.getId();
+        runAfterCommit(() -> notificationService.sendRescheduleNotification(rescheduledAppointmentId));
 
         return toSummaryResponse(appointment);
     }
@@ -215,8 +291,15 @@ public class AppointmentService {
             throw AppException.forbidden("Not your appointment");
         }
 
-        appointment.setStatus(AppointmentStatus.COMPLETED);
         appointment.setCompletedAt(OffsetDateTime.now());
+        
+        // Split payment logic: Require 70% post-meeting if virtual and not already confirmed
+        if (appointment.isVirtual() && appointment.getFinalPaymentStatus() != com.appointunified.enums.PaymentStatus.CONFIRMED) {
+             appointment.setStatus(AppointmentStatus.PENDING_BALANCE);
+        } else {
+             appointment.setStatus(AppointmentStatus.COMPLETED);
+        }
+        
         professional.setTotalCompleted(professional.getTotalCompleted() + 1);
         professionalRepository.save(professional);
         behaviorScoringService.registerCompletion(appointment);
@@ -255,12 +338,18 @@ public class AppointmentService {
             throw AppException.forbidden("Not your appointment");
         }
 
-        // Just blindly marks pending as confirmed for MVP
+        // MVP payment confirmation: move lock-state bookings to schedulable state.
         if (appointment.getDepositStatus() != com.appointunified.enums.PaymentStatus.CONFIRMED) {
              appointment.setDepositStatus(com.appointunified.enums.PaymentStatus.CONFIRMED);
-             appointmentRepository.save(appointment);
         }
-        
+
+        if (appointment.getStatus() == AppointmentStatus.PENDING_DEPOSIT ||
+                appointment.getStatus() == AppointmentStatus.DEPOSIT_PAID ||
+                appointment.getStatus() == AppointmentStatus.CONFIRMED) {
+            appointment.setStatus(AppointmentStatus.SCHEDULED);
+        }
+
+        appointment = appointmentRepository.save(appointment);
         return toSummaryResponse(appointment);
     }
 
@@ -348,14 +437,22 @@ public class AppointmentService {
 
         boolean inJoinWindow = !now.isBefore(joinStartsAt) && !now.isAfter(joinEndsAt);
 
-        if (appointment.getStatus() != AppointmentStatus.SCHEDULED &&
-                appointment.getStatus() != AppointmentStatus.COMPLETED) {
+        boolean statusJoinable = appointment.getStatus() == AppointmentStatus.SCHEDULED ||
+                appointment.getStatus() == AppointmentStatus.CONFIRMED ||
+                appointment.getStatus() == AppointmentStatus.DEPOSIT_PAID ||
+                appointment.getStatus() == AppointmentStatus.IN_MEETING ||
+                appointment.getStatus() == AppointmentStatus.IN_PROGRESS ||
+                appointment.getStatus() == AppointmentStatus.PENDING_BALANCE ||
+                appointment.getStatus() == AppointmentStatus.PAID_FULL ||
+                appointment.getStatus() == AppointmentStatus.COMPLETED;
+
+        if (!statusJoinable) {
             info.setCanJoin(false);
             info.setReason("Meeting is not available because appointment status is " + appointment.getStatus().name());
             return info;
         }
 
-        if (!inJoinWindow) {
+        if (strictMeetingJoinWindow && !inJoinWindow) {
             info.setCanJoin(false);
             if (now.isBefore(joinStartsAt)) {
                 info.setReason("Meeting has not started yet");
@@ -366,8 +463,107 @@ public class AppointmentService {
         }
 
         info.setCanJoin(true);
-        info.setReason("Meeting is ready to join");
+        info.setReason(strictMeetingJoinWindow ? "Meeting is ready to join" : "Meeting is ready to join (demo mode window relaxed)");
         return info;
+    }
+
+    @Transactional(readOnly = true)
+    public AppointmentResponse.BookingForm generateBookingForm(UUID appointmentId, UUID requesterId) {
+        Appointment appointment = findAndValidate(appointmentId, requesterId);
+
+        String bookingToken = appointment.getMeetingToken();
+        if (bookingToken == null || bookingToken.isBlank()) {
+            String share = appointment.getShareToken();
+            bookingToken = (share != null && share.length() >= 8)
+                    ? share.substring(0, 8).toUpperCase(Locale.ROOT)
+                    : appointment.getId().toString().substring(0, 8).toUpperCase(Locale.ROOT);
+        }
+
+        double distanceKm = appointment.getDistanceMeters() != null
+                ? Math.round((appointment.getDistanceMeters() / 1000.0) * 100.0) / 100.0
+                : 0.0;
+
+        String mode = appointment.isVirtual() ? "ONLINE" : "OFFLINE";
+        String clientName = appointment.getClient() != null && appointment.getClient().getFullName() != null
+            ? appointment.getClient().getFullName()
+            : "Client";
+        String professionalName = appointment.getProfessional() != null && appointment.getProfessional().getDisplayName() != null
+            ? appointment.getProfessional().getDisplayName()
+            : "Professional";
+        String serviceName = appointment.getService() != null && appointment.getService().getName() != null
+            ? appointment.getService().getName()
+            : "Service";
+
+        String prompt = String.format("""
+                Generate a concise booking receipt in plain text for a user.
+                Keep it under 16 lines, no markdown.
+                Must include this exact closing line: Happy consultancy.
+
+                Appointment ID: %s
+                Booking Token: %s
+                Client Name: %s
+                Professional: %s
+                Service: %s
+                Mode: %s
+                Start Time: %s
+                End Time: %s
+                Distance (km): %.2f
+                Total Amount: %s
+                """,
+                appointment.getId(),
+                bookingToken,
+                clientName,
+                professionalName,
+                serviceName,
+                mode,
+                appointment.getStartTime(),
+                appointment.getEndTime(),
+                distanceKm,
+                appointment.getTotalAmount()
+        );
+
+        String content = "";
+        try {
+            content = groqService.generateCompletion(prompt, 700, 0.3f);
+        } catch (Exception ex) {
+            log.warn("Booking form AI generation failed for appointment {}. Falling back to template.", appointmentId, ex);
+        }
+
+        if (content == null || content.isBlank()) {
+            content = String.format("""
+                    Booking Receipt
+                    Appointment ID: %s
+                    Booking Token: %s
+                    Client: %s
+                    Professional: %s
+                    Service: %s
+                    Mode: %s
+                    Start: %s
+                    End: %s
+                    Distance: %.2f km
+                    Total: %s
+                    Happy consultancy.
+                    """,
+                    appointment.getId(),
+                    bookingToken,
+                    clientName,
+                    professionalName,
+                    serviceName,
+                    mode,
+                    appointment.getStartTime(),
+                    appointment.getEndTime(),
+                    distanceKm,
+                    appointment.getTotalAmount()
+            );
+        }
+
+        AppointmentResponse.BookingForm form = new AppointmentResponse.BookingForm();
+        form.setAppointmentId(appointment.getId());
+        form.setBookingToken(bookingToken);
+        form.setDistanceKm(distanceKm);
+        form.setGeneratedAt(OffsetDateTime.now());
+        form.setContent(content.trim());
+        return form;
     }
 
     // NEW V1 FEATURE 3: Save booking draft
@@ -399,7 +595,11 @@ public class AppointmentService {
                     .ifPresent(draft::setService);
         }
 
-        draft.setStepReached(request.getStepReached() != null ? request.getStepReached() : 1);
+        Short stepReached = request.getStepReached();
+        if (stepReached == null) {
+            stepReached = Short.valueOf((short) 1);
+        }
+        draft.setStepReached(stepReached);
         draft.setDraftData(request.getDraftData() != null ? request.getDraftData() : new HashMap<>());
         draft.setUpdatedAt(OffsetDateTime.now());
 
@@ -407,6 +607,7 @@ public class AppointmentService {
         return toDraftResponse(draft);
     }
 
+    @Transactional(readOnly = true)
     public List<AppointmentResponse.DraftSummary> getMyDrafts(UUID userId) {
         return bookingDraftRepository
                 .findByUserIdAndExpiresAtAfterOrderByUpdatedAtDesc(userId, OffsetDateTime.now())
@@ -431,6 +632,19 @@ public class AppointmentService {
     public void cleanupExpiredDrafts() {
         int deleted = bookingDraftRepository.deleteExpiredDrafts(OffsetDateTime.now());
         log.info("Cleaned up {} expired booking drafts", deleted);
+    }
+
+    // Free locked slots that were unpaid > 5 mins
+    @Scheduled(fixedRate = 60000) // 1 minute
+    @Transactional
+    public void cleanupExpiredSlotLocks() {
+        OffsetDateTime threshold = OffsetDateTime.now().minusMinutes(5);
+        List<Appointment> expiredLocks = appointmentRepository.findByStatusAndCreatedAtBefore(AppointmentStatus.PENDING_DEPOSIT, threshold);
+        for (Appointment a : expiredLocks) {
+            a.setStatus(AppointmentStatus.EXPIRED);
+            appointmentRepository.save(a);
+            log.info("Cleared expired 5-minute locked slot for appointment {}", a.getId());
+        }
     }
 
     // ─── iCal generation (NEW V1 FEATURE 4) ────────────────────────────────
@@ -558,5 +772,18 @@ public class AppointmentService {
                 * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
+    }
+
+    private void runAfterCommit(Runnable task) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    task.run();
+                }
+            });
+            return;
+        }
+        task.run();
     }
 }

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowRight, Calendar, Clock, GitBranch, Star, TrendingUp, Zap, HeartPulse, Landmark, Settings2, ShieldAlert } from 'lucide-react'
-import { Navbar } from '@/components/layout/Navbar'
+import { UserShell } from '@/components/layout/UserShell'
 import { useAuthStore } from '@/lib/store'
 import { appointmentsApi, professionalsApi, usersApi } from '@/lib/api'
 import { AppointmentSummary, ProfessionalSummary, RiskSummary } from '@/types'
@@ -61,8 +61,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <>
-      <Navbar />
+    <UserShell>
       <main className="min-h-screen bg-slate-50">
         <div className="container-page py-8 max-w-5xl">
 
@@ -213,6 +212,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
-    </>
+    </UserShell>
   )
 }

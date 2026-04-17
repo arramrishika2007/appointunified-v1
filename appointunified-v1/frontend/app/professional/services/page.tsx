@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Clock, FileText, Loader2, Monitor, Plus, Trash2 } from 'lucide-react'
-import { Navbar } from '@/components/layout/Navbar'
 import { useAuthStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { ServiceSummary } from '@/types'
@@ -25,7 +24,7 @@ export default function ServicesManagementPage() {
   })
 
   useEffect(() => {
-    if (!isAuthenticated || user?.role !== 'PROFESSIONAL') { router.push('/dashboard'); return }
+    if (!isAuthenticated || user?.role !== 'PROFESSIONAL') { router.push('/professional/dashboard'); return }
 
     // Get own professional ID first
     api.get('/professionals/me').then(res => {
@@ -80,7 +79,6 @@ export default function ServicesManagementPage() {
 
   return (
     <>
-      <Navbar />
       <main className="min-h-screen bg-slate-50">
         <div className="container-page py-8 max-w-2xl">
           <div className="flex items-center justify-between mb-6">

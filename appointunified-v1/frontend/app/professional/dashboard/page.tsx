@@ -2,17 +2,30 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Calendar, CheckCircle2, Clock, Loader2, MapPin, Save, TrendingUp, Users, Zap, AlertCircle } from 'lucide-react'
+import { Calendar, CheckCircle2, Clock, Download, Loader2, MapPin, Monitor, Save, TrendingUp, Users, Zap, AlertCircle, Video, MessageSquare } from 'lucide-react'
 import Link from 'next/link'
-import { Navbar } from '@/components/layout/Navbar'
+import { ProfessionalShell } from '@/components/layout/ProfessionalShell'
+import { LocationMapModal } from '@/components/booking/LocationMapModal'
 import { useAuthStore } from '@/lib/store'
 import { appointmentsApi, professionalsApi } from '@/lib/api'
 import { verificationApi } from '@/lib/api-v2'
 import { AppointmentSummary, AvailabilityMood } from '@/types'
 import { cn, formatDateTime, MOOD_CONFIG, STATUS_CONFIG } from '@/lib/utils'
 import toast from 'react-hot-toast'
+import jsPDF from 'jspdf'
 
 const MOODS: AvailabilityMood[] = ['AVAILABLE', 'RUNNING_LATE', 'TAKING_BREAKS', 'BUSY', 'DO_NOT_DISTURB']
+
+const MEETING_JOINABLE_STATUSES: AppointmentSummary['status'][] = [
+  'CONFIRMED',
+  'DEPOSIT_PAID',
+  'SCHEDULED',
+  'IN_MEETING',
+  'IN_PROGRESS',
+  'PENDING_BALANCE',
+  'PAID_FULL',
+  'COMPLETED',
+]
 
 export default function ProfessionalDashboardPage() {
   const router = useRouter()
@@ -30,14 +43,16 @@ export default function ProfessionalDashboardPage() {
   const [officeLat, setOfficeLat] = useState<number | null>(null)
   const [officeLng, setOfficeLng] = useState<number | null>(null)
   const [savingArea, setSavingArea] = useState(false)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
+  const [mapAppointment, setMapAppointment] = useState<AppointmentSummary | null>(null)
 
   useEffect(() => {
     if (!hasHydrated) return
     if (!isAuthenticated) { router.push('/auth/login'); return }
-    if (user?.role !== 'PROFESSIONAL') { router.push('/dashboard'); return }
+    if (user?.role !== 'PROFESSIONAL') { router.push('/professional/dashboard'); return }
 
     Promise.all([
-      appointmentsApi.getMyAppointments({ size: 50, sort: 'startTime,asc' }).catch(err => {
+      appointmentsApi.getMyProfessionalAppointments({ size: 50, sort: 'startTime,asc' }).catch(err => {
         console.error('Failed to load appointments:', err)
         return { data: { data: { content: [] } } }
       }),
@@ -51,11 +66,9 @@ export default function ProfessionalDashboardPage() {
       }),
     ])
       .then(([apptRes, verifRes, myProfileRes]) => {
-        const now = new Date().toISOString()
         const appts = apptRes?.data?.data?.content || []
-        setAppointments(
-          appts.filter((a: AppointmentSummary) => a.startTime > now)
-        )
+        // Keep server results as-is so newly booked items are always visible.
+        setAppointments(appts)
         if (verifRes?.data?.data) {
           setVerificationStatus(verifRes.data.data.verificationStatus)
         }
@@ -110,6 +123,42 @@ export default function ProfessionalDashboardPage() {
     }
   }
 
+  const openClientMap = (a: AppointmentSummary) => {
+    if (a.clientLat == null || a.clientLon == null) {
+      toast.error('Client location is not available for this booking')
+      return
+    }
+    setMapAppointment(a)
+  }
+
+  const canJoinMeeting = (appointment: AppointmentSummary) => {
+    return appointment.virtual && !!appointment.meetingToken && MEETING_JOINABLE_STATUSES.includes(appointment.status)
+  }
+
+  const canOpenChat = (appointment: AppointmentSummary) => {
+    return !['DRAFT', 'EXPIRED'].includes(appointment.status)
+  }
+
+  const downloadBookingFormPdf = async (a: AppointmentSummary) => {
+    setDownloadingId(a.id)
+    try {
+      const response = await appointmentsApi.getBookingForm(a.id)
+      const form = response.data?.data
+      const content = form?.content || 'Booking form not available.'
+      const doc = new jsPDF({ unit: 'pt', format: 'a4' })
+      doc.setFontSize(12)
+      doc.text(`Booking Form - ${a.id}`, 40, 50)
+      doc.setFontSize(10)
+      const lines = doc.splitTextToSize(content, 515)
+      doc.text(lines, 40, 72)
+      doc.save(`booking-form-${a.id}.pdf`)
+    } catch {
+      toast.error('Could not generate booking form right now')
+    } finally {
+      setDownloadingId(null)
+    }
+  }
+
   const todayAppts = appointments.filter(a => {
     const d = new Date(a.startTime)
     const today = new Date()
@@ -127,9 +176,8 @@ export default function ProfessionalDashboardPage() {
   const moodCfg = MOOD_CONFIG[currentMood]
 
   return (
-    <div className="min-h-screen bg-primary">
-      <Navbar />
-      <main className="pt-32 pb-12">
+    <ProfessionalShell>
+      <main className="min-h-screen bg-primary py-8">
         {(!hasHydrated || loading) ? (
           <div className="flex justify-center items-center min-h-[50vh]">
             <Loader2 size={32} className="animate-spin text-brand-500" />
@@ -330,9 +378,31 @@ export default function ProfessionalDashboardPage() {
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-slate-900 truncate">{a.client.fullName}</p>
                         <p className="text-sm text-slate-500 truncate">{a.service.name}</p>
+                        <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-500">
+                          {a.virtual ? (
+                            <span className="inline-flex items-center gap-1 text-brand-600"><Monitor size={11} /> Online</span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1"><MapPin size={11} /> Offline</span>
+                          )}
+                          {a.virtual && a.meetingToken && (
+                            <span className="rounded-full bg-brand-50 px-2 py-0.5 text-brand-700">Token #{a.meetingToken}</span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className={cn('badge text-xs', s.bg, s.color)}>{s.label}</span>
+                        <span className={cn('badge text-xs', s.color)}>{s.label}</span>
+                        {!a.virtual && a.clientLat != null && a.clientLon != null && (
+                          <button onClick={() => openClientMap(a)} className="btn-ghost px-2 py-1 text-xs">
+                            <MapPin size={12} /> Map
+                          </button>
+                        )}
+                        <button
+                          onClick={() => downloadBookingFormPdf(a)}
+                          disabled={downloadingId === a.id}
+                          className="btn-ghost px-2 py-1 text-xs"
+                        >
+                          {downloadingId === a.id ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} Form PDF
+                        </button>
                         {a.status === 'SCHEDULED' && (
                           <button
                             onClick={async () => {
@@ -344,6 +414,22 @@ export default function ProfessionalDashboardPage() {
                           >
                             Complete
                           </button>
+                        )}
+                        {canJoinMeeting(a) && (
+                          <Link
+                            href={`/meeting/join?token=${encodeURIComponent(a.meetingToken as string)}`}
+                            className="btn-ghost px-2 py-1 text-xs"
+                          >
+                            <Video size={12} /> Join room
+                          </Link>
+                        )}
+                        {canOpenChat(a) && (
+                          <Link
+                            href={`/chat/${a.id}`}
+                            className="btn-ghost px-2 py-1 text-xs"
+                          >
+                            <MessageSquare size={12} /> Chat
+                          </Link>
                         )}
                       </div>
                     </div>
@@ -376,6 +462,46 @@ export default function ProfessionalDashboardPage() {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-slate-900 truncate">{a.client.fullName}</p>
                         <p className="text-sm text-slate-500">{formatDateTime(a.startTime)} · {a.service.name}</p>
+                        <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-500">
+                          {a.virtual ? (
+                            <span className="inline-flex items-center gap-1 text-brand-600"><Monitor size={11} /> Online</span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1"><MapPin size={11} /> Offline</span>
+                          )}
+                          {a.virtual && a.meetingToken && (
+                            <span className="rounded-full bg-brand-50 px-2 py-0.5 text-brand-700">Token #{a.meetingToken}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {canJoinMeeting(a) && (
+                          <Link
+                            href={`/meeting/join?token=${encodeURIComponent(a.meetingToken as string)}`}
+                            className="btn-ghost px-2 py-1 text-xs"
+                          >
+                            <Video size={12} /> Join room
+                          </Link>
+                        )}
+                        {canOpenChat(a) && (
+                          <Link
+                            href={`/chat/${a.id}`}
+                            className="btn-ghost px-2 py-1 text-xs"
+                          >
+                            <MessageSquare size={12} /> Chat
+                          </Link>
+                        )}
+                        {!a.virtual && a.clientLat != null && a.clientLon != null && (
+                          <button onClick={() => openClientMap(a)} className="btn-ghost px-2 py-1 text-xs">
+                            <MapPin size={12} /> Map
+                          </button>
+                        )}
+                        <button
+                          onClick={() => downloadBookingFormPdf(a)}
+                          disabled={downloadingId === a.id}
+                          className="btn-ghost px-2 py-1 text-xs"
+                        >
+                          {downloadingId === a.id ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} Form PDF
+                        </button>
                       </div>
                     </div>
                   ))
@@ -384,9 +510,18 @@ export default function ProfessionalDashboardPage() {
             </div>
           )}
 
+          <LocationMapModal
+            open={mapAppointment != null}
+            onClose={() => setMapAppointment(null)}
+            provider={officeLat != null && officeLng != null ? { lat: officeLat, lng: officeLng } : null}
+            client={mapAppointment?.clientLat != null && mapAppointment?.clientLon != null ? { lat: Number(mapAppointment.clientLat), lng: Number(mapAppointment.clientLon) } : null}
+            title={mapAppointment ? `${mapAppointment.client.fullName} and your location` : 'Map view'}
+            subtitle="Leaflet view of both locations inside the app."
+          />
+
         </div>
         )}
       </main>
-    </div>
+    </ProfessionalShell>
   )
 }

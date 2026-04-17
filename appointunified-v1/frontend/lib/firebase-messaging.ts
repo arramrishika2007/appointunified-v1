@@ -1,7 +1,7 @@
 import { getMessaging, getToken, isSupported } from 'firebase/messaging'
 import { firebaseApp, isFirebaseConfigured } from '@/lib/firebase'
 
-export async function generateFcmToken(): Promise<string | null> {
+export async function generateFcmToken(options?: { requestPermission?: boolean }): Promise<string | null> {
   if (!isFirebaseConfigured || !firebaseApp) {
     return null
   }
@@ -14,7 +14,11 @@ export async function generateFcmToken(): Promise<string | null> {
     return null
   }
 
-  const permission = await Notification.requestPermission()
+  const shouldRequestPermission = options?.requestPermission ?? true
+  const permission = shouldRequestPermission
+    ? await Notification.requestPermission()
+    : Notification.permission
+
   if (permission !== 'granted') {
     return null
   }

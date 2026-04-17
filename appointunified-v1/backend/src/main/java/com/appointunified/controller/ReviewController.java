@@ -44,6 +44,27 @@ public class ReviewController {
         return ResponseEntity.ok(ApiResponse.ok(page));
     }
 
+    /** List reviews submitted by the current user */
+    @GetMapping("/me")
+    @Operation(summary = "Get reviews submitted by me")
+    public ResponseEntity<ApiResponse<Page<ReviewResponse>>> listMine(
+            @AuthenticationPrincipal UUID userId,
+            @PageableDefault(size = 10) Pageable pageable) {
+
+        Page<ReviewResponse> page = reviewRepository
+            .findByReviewerIdOrderByCreatedAtDesc(userId, pageable)
+            .map(this::toResponse);
+
+        return ResponseEntity.ok(ApiResponse.ok(page));
+    }
+
+    /** Count reviews submitted by current user */
+    @GetMapping("/me/count")
+    @Operation(summary = "Get total reviews submitted by me")
+    public ResponseEntity<ApiResponse<Long>> countMine(@AuthenticationPrincipal UUID userId) {
+        return ResponseEntity.ok(ApiResponse.ok(reviewRepository.countByReviewerId(userId)));
+    }
+
     /** Submit review (authenticated, must have completed appointment) */
     @PostMapping
     @Operation(summary = "Submit a review for a completed appointment")
@@ -59,8 +80,10 @@ public class ReviewController {
             throw AppException.forbidden("You can only review your own appointments");
         }
 
-        if (appointment.getStatus() != AppointmentStatus.COMPLETED) {
-            throw AppException.badRequest("You can only review completed appointments");
+        if (appointment.getStatus() != AppointmentStatus.COMPLETED && 
+            appointment.getStatus() != AppointmentStatus.PENDING_BALANCE && 
+            appointment.getStatus() != AppointmentStatus.PAID_FULL) {
+            throw AppException.badRequest("You can only review appointments that have taken place");
         }
 
         if (reviewRepository.existsByAppointmentId(appointment.getId())) {

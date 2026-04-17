@@ -1,8 +1,12 @@
 package com.appointunified.service;
 
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -13,6 +17,8 @@ import java.util.Map;
 @Service
 public class CloudinaryService {
 
+    private static final Logger log = LoggerFactory.getLogger(CloudinaryService.class);
+
     @Value("${app.cloudinary.cloud-name:}")
     private String cloudName;
 
@@ -21,6 +27,39 @@ public class CloudinaryService {
 
     @Value("${app.cloudinary.api-secret:}")
     private String apiSecret;
+
+    @Value("${CLOUDINARY_URL:}")
+    private String cloudinaryUrl;
+
+    @PostConstruct
+    void initFromCloudinaryUrl() {
+        // Backward-compatible fallback for env files that only provide CLOUDINARY_URL.
+        if ((isBlank(cloudName) || isBlank(apiKey) || isBlank(apiSecret)) && !isBlank(cloudinaryUrl)) {
+            try {
+                URI uri = URI.create(cloudinaryUrl);
+                String userInfo = uri.getUserInfo();
+                String host = uri.getHost();
+
+                if (!isBlank(userInfo)) {
+                    String[] creds = userInfo.split(":", 2);
+                    if (creds.length == 2) {
+                        if (isBlank(apiKey)) {
+                            apiKey = creds[0];
+                        }
+                        if (isBlank(apiSecret)) {
+                            apiSecret = creds[1];
+                        }
+                    }
+                }
+
+                if (isBlank(cloudName) && !isBlank(host)) {
+                    cloudName = host;
+                }
+            } catch (Exception ex) {
+                log.warn("Failed to parse CLOUDINARY_URL. Falling back to explicit Cloudinary fields only.");
+            }
+        }
+    }
 
     public record SignedUploadConfig(String cloudName, String apiKey, long timestamp, String folder, String signature) {}
 
@@ -71,5 +110,9 @@ public class CloudinaryService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-1 algorithm unavailable", e);
         }
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 public class NotificationServiceV3Extension {
 
     private final JavaMailSender mailSender;
+    private final NotificationService notificationService;
 
     @Value("${app.mail.from}")      private String fromEmail;
     @Value("${app.mail.from-name}") private String fromName;
@@ -30,8 +31,17 @@ public class NotificationServiceV3Extension {
     @Async
     public void sendQueueCallNotification(Appointment appointment) {
         User client = appointment.getClient();
-        if (client.getEmail() == null) return;
         try {
+            notificationService.createNotification(
+                    client.getId(),
+                    "QUEUE",
+                    "It's your turn",
+                    appointment.getProfessional().getDisplayName() + " is ready for you now.",
+                    "/dashboard/bookings/" + appointment.getId()
+            );
+
+            if (client.getEmail() == null) return;
+
             String body = String.format("""
                 Hi %s,
 
@@ -61,8 +71,17 @@ public class NotificationServiceV3Extension {
     @Async
     public void sendDelayNotification(Appointment appointment, int delayMinutes, int newEstimatedWaitMins) {
         User client = appointment.getClient();
-        if (client.getEmail() == null) return;
         try {
+            notificationService.createNotification(
+                    client.getId(),
+                    "QUEUE",
+                    "Queue delayed",
+                    String.format("Delay: %d min. New ETA: %d min.", delayMinutes, newEstimatedWaitMins),
+                    "/dashboard/bookings/" + appointment.getId()
+            );
+
+            if (client.getEmail() == null) return;
+
             String body = String.format("""
                 Hi %s,
 
@@ -91,8 +110,18 @@ public class NotificationServiceV3Extension {
     @Async
     public void sendQueuePausedNotification(Appointment appointment, String reason) {
         User client = appointment.getClient();
-        if (client.getEmail() == null) return;
         try {
+            String details = (reason == null || reason.isBlank()) ? "" : " Reason: " + reason;
+            notificationService.createNotification(
+                    client.getId(),
+                    "QUEUE",
+                    "Queue paused",
+                    "The queue was temporarily paused." + details,
+                    "/dashboard/bookings/" + appointment.getId()
+            );
+
+            if (client.getEmail() == null) return;
+
             String body = String.format("""
                 Hi %s,
 

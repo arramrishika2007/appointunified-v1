@@ -184,15 +184,27 @@ public class WorkflowEngineService {
 
     @Transactional(readOnly = true)
     public WorkflowResponse.AppointmentWorkflowContext getAppointmentWorkflowContext(UUID appointmentId, UUID requesterId) {
-        WorkflowStepAppointment stepAppointment = workflowStepAppointmentRepository.findByAppointmentId(appointmentId)
-                .orElseThrow(() -> AppException.notFound("No workflow context found for this appointment"));
-
-        Appointment appointment = stepAppointment.getAppointment();
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+            .orElseThrow(() -> AppException.notFound("Appointment not found"));
         boolean isClient = appointment.getClient().getId().equals(requesterId);
         boolean isProfessional = appointment.getProfessional().getUser().getId().equals(requesterId);
 
         if (!isClient && !isProfessional) {
             throw AppException.forbidden("You do not have access to this appointment workflow");
+        }
+
+        WorkflowStepAppointment stepAppointment = workflowStepAppointmentRepository.findByAppointmentId(appointmentId)
+            .orElse(null);
+
+        if (stepAppointment == null) {
+            WorkflowResponse.AppointmentWorkflowContext context = new WorkflowResponse.AppointmentWorkflowContext();
+            context.setAppointmentId(appointmentId);
+            context.setInstanceId(null);
+            context.setWorkflowName("Standalone Appointment");
+            context.setStepOrder(0);
+            context.setStepLabel("Not part of a workflow");
+            context.setInstanceStatus("NOT_LINKED");
+            return context;
         }
 
         WorkflowResponse.AppointmentWorkflowContext context = new WorkflowResponse.AppointmentWorkflowContext();

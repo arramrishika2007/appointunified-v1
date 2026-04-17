@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Calendar, Check, Clock, Copy, Download, ExternalLink, GitBranch, Loader2, Monitor, RefreshCw, Trash2, Video, X } from 'lucide-react'
-import { Navbar } from '@/components/layout/Navbar'
+import { Calendar, Check, Clock, Copy, Download, ExternalLink, GitBranch, Loader2, MapPin, Monitor, RefreshCw, Trash2, Video, X } from 'lucide-react'
+import { UserShell } from '@/components/layout/UserShell'
+import { LocationMapModal } from '@/components/booking/LocationMapModal'
 import { appointmentsApi, waitlistApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store'
 import { AppointmentSummary, DraftSummary, WaitlistSummary } from '@/types'
@@ -12,6 +13,35 @@ import { cn, formatDateTime, formatDuration, STATUS_CONFIG } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 type Tab = 'upcoming' | 'past' | 'drafts' | 'waitlist'
+
+const UPCOMING_STATUSES: AppointmentSummary['status'][] = [
+  'PENDING_DEPOSIT',
+  'DEPOSIT_PAID',
+  'CONFIRMED',
+  'SCHEDULED',
+  'IN_QUEUE',
+  'IN_MEETING',
+  'IN_PROGRESS',
+  'PENDING_BALANCE',
+]
+
+const MEETING_JOINABLE_STATUSES: AppointmentSummary['status'][] = [
+  'CONFIRMED',
+  'DEPOSIT_PAID',
+  'SCHEDULED',
+  'IN_MEETING',
+  'IN_PROGRESS',
+  'PENDING_BALANCE',
+  'PAID_FULL',
+  'COMPLETED',
+]
+
+const DEPOSIT_CONFIRMABLE_STATUSES: AppointmentSummary['status'][] = [
+  'PENDING_DEPOSIT',
+  'DEPOSIT_PAID',
+  'CONFIRMED',
+  'SCHEDULED',
+]
 
 export default function MyBookingsPage() {
   const router = useRouter()
@@ -26,24 +56,52 @@ export default function MyBookingsPage() {
   const [shareLoading, setShareLoading] = useState<string | null>(null)
   const [paymentLoading, setPaymentLoading] = useState<string | null>(null)
   const [workflowLoading, setWorkflowLoading] = useState<string | null>(null)
+  const [draftsError, setDraftsError] = useState<string | null>(null)
 
   const justBooked = searchParams.get('booked')
+
+  const loadBookings = async () => {
+    setLoading(true)
+    setDraftsError(null)
+
+    try {
+      const results = await Promise.allSettled([
+        appointmentsApi.getMyAppointments({ size: 50 }),
+        appointmentsApi.getMyDrafts(),
+        waitlistApi.getMine(),
+      ])
+
+      const [apptRes, draftRes, waitlistRes] = results
+
+      if (apptRes.status === 'fulfilled') {
+        setAppointments(apptRes.value.data.data.content)
+      } else {
+        setAppointments([])
+      }
+
+      if (draftRes.status === 'fulfilled') {
+        setDrafts(draftRes.value.data.data)
+      } else {
+        setDrafts([])
+        setDraftsError('Saved drafts are temporarily unavailable right now.')
+      }
+
+      if (waitlistRes.status === 'fulfilled') {
+        setWaitlistEntries(waitlistRes.value.data.data)
+      } else {
+        setWaitlistEntries([])
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (!isAuthenticated) router.push('/auth/login')
   }, [isAuthenticated, router])
 
   useEffect(() => {
-    setLoading(true)
-    Promise.all([
-      appointmentsApi.getMyAppointments({ size: 50 }),
-      appointmentsApi.getMyDrafts(),
-      waitlistApi.getMine(),
-    ]).then(([apptRes, draftRes, waitlistRes]) => {
-      setAppointments(apptRes.data.data.content)
-      setDrafts(draftRes.data.data)
-      setWaitlistEntries(waitlistRes.data.data)
-    }).finally(() => setLoading(false))
+    void loadBookings()
   }, [])
 
   const handleConfirmDeposit = async (id: string) => {
@@ -72,11 +130,11 @@ export default function MyBookingsPage() {
 
   const now = new Date().toISOString()
   const upcomingAppts = appointments.filter((a) =>
-    ['SCHEDULED', 'IN_QUEUE', 'IN_PROGRESS'].includes(a.status) && a.startTime > now
+    UPCOMING_STATUSES.includes(a.status) && a.startTime > now
   ).sort((a, b) => a.startTime.localeCompare(b.startTime))
 
   const pastAppts = appointments.filter((a) =>
-    !['SCHEDULED', 'IN_QUEUE', 'IN_PROGRESS'].includes(a.status) || a.startTime <= now
+    !UPCOMING_STATUSES.includes(a.status) || a.startTime <= now
   ).sort((a, b) => b.startTime.localeCompare(a.startTime))
 
   const handleCancel = async (id: string) => {
@@ -105,7 +163,12 @@ export default function MyBookingsPage() {
   }
 
   const handleIcal = (id: string) => {
-    window.open(`${process.env.NEXT_PUBLIC_API_URL}/appointments/${id}/ical`, '_blank')
+    const apiBase = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api').replace(/\/$/, '')
+    const icalUrl = `${apiBase}/appointments/${id}/ical`
+    const win = window.open(icalUrl, '_blank', 'noopener,noreferrer')
+    if (!win) {
+      toast.error('Could not open calendar download. Please allow popups and try again.')
+    }
   }
 
   const handleDeleteDraft = async (id: string) => {
@@ -145,8 +208,7 @@ export default function MyBookingsPage() {
   ]
 
   return (
-    <>
-      <Navbar />
+    <UserShell>
       <main className="min-h-screen bg-slate-50">
         <div className="container-page py-8 max-w-3xl">
 
@@ -291,6 +353,17 @@ export default function MyBookingsPage() {
               {/* Drafts — NEW V1 FEATURE 3 */}
               {tab === 'drafts' && (
                 <div className="space-y-4">
+                  {draftsError && (
+                    <div className="card border border-amber-200 bg-amber-50 p-4 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-amber-800">Drafts unavailable</p>
+                        <p className="text-xs text-amber-700">{draftsError}</p>
+                      </div>
+                      <button onClick={loadBookings} className="btn-secondary text-xs px-3 py-1.5">
+                        <RefreshCw size={13} /> Retry
+                      </button>
+                    </div>
+                  )}
                   {drafts.length === 0 ? (
                     <div className="card p-12 text-center">
                       <p className="text-slate-400 mb-2">No saved drafts.</p>
@@ -337,7 +410,7 @@ export default function MyBookingsPage() {
           )}
         </div>
       </main>
-    </>
+    </UserShell>
   )
 }
 
@@ -358,10 +431,13 @@ interface CardProps {
 
 function AppointmentCard({ appt, onCancel, onShare, onIcal, onConfirmDeposit, onOpenWorkflow, shareLoading, paymentLoading, workflowLoading, isPast }: CardProps) {
   const statusCfg = STATUS_CONFIG[appt.status]
+  const isVirtual = !!appt.virtual
+  const [mapOpen, setMapOpen] = useState(false)
   const canCancel = !isPast && ['SCHEDULED'].includes(appt.status)
   const canTrackQueue = !isPast && ['IN_QUEUE', 'IN_PROGRESS'].includes(appt.status)
-  const canConfirmDeposit = !isPast && appt.status === 'SCHEDULED' && appt.depositStatus !== 'CONFIRMED'
-  const canJoinMeeting = !isPast && appt.virtual && !!appt.meetingToken && ['SCHEDULED', 'IN_PROGRESS'].includes(appt.status)
+  const canConfirmDeposit = isVirtual && !isPast && DEPOSIT_CONFIRMABLE_STATUSES.includes(appt.status) && appt.depositStatus !== 'CONFIRMED'
+  const canJoinMeeting = !isPast && appt.virtual && !!appt.meetingToken && MEETING_JOINABLE_STATUSES.includes(appt.status)
+  const canOpenMap = !isVirtual && appt.client?.id && appt.clientLat != null && appt.clientLon != null
 
   return (
     <div className="card p-5 animate-fade-in">
@@ -370,6 +446,9 @@ function AppointmentCard({ appt, onCancel, onShare, onIcal, onConfirmDeposit, on
           <div className="flex items-center gap-2 flex-wrap mb-1">
             <h3 className="font-semibold text-slate-900 truncate">{appt.professional.displayName}</h3>
             <span className={cn('badge', statusCfg.bg, statusCfg.color)}>{statusCfg.label}</span>
+            <span className={cn('badge text-xs', isVirtual ? 'bg-brand-100 text-brand-700' : 'bg-slate-100 text-slate-600')}>
+              {isVirtual ? 'Virtual' : 'Offline'}
+            </span>
           </div>
           <p className="text-sm text-slate-500">{appt.service.name}</p>
         </div>
@@ -389,11 +468,24 @@ function AppointmentCard({ appt, onCancel, onShare, onIcal, onConfirmDeposit, on
           <Clock size={13} className="text-slate-400" />
           {formatDuration(appt.service.durationMinutes)}
         </span>
-        {appt.virtual && <span className="inline-flex items-center gap-1 text-brand-600 text-xs font-medium"><Monitor size={12} /> Virtual</span>}
+        {isVirtual ? (
+          <span className="inline-flex items-center gap-1 text-brand-600 text-xs font-medium"><Monitor size={12} /> Online</span>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-slate-500 text-xs font-medium"><MapPin size={12} /> Offline</span>
+        )}
       </div>
 
       {/* Action buttons */}
       <div className="flex items-center gap-2 flex-wrap">
+        <Link
+          href={`/dashboard/bookings/${appt.id}`}
+          className="btn-ghost text-xs px-3 py-1.5"
+          aria-label={`Open appointment details for ${appt.professional.displayName}`}
+          title={`Open appointment details for ${appt.professional.displayName}`}
+        >
+          <ExternalLink size={13} /> Details
+        </Link>
+
         {canTrackQueue && (
           <Link
             href={`/queue?professional=${appt.professional.id}&appointment=${appt.id}&name=${encodeURIComponent(appt.professional.displayName)}`}
@@ -423,6 +515,35 @@ function AppointmentCard({ appt, onCancel, onShare, onIcal, onConfirmDeposit, on
           </button>
         )}
 
+        {isVirtual && (
+          <Link
+            href={`/dashboard/bookings/${appt.id}/payment`}
+            className="btn-ghost text-xs px-3 py-1.5"
+            aria-label={`Open payment details for ${appt.professional.displayName}`}
+            title={`Open payment details for ${appt.professional.displayName}`}
+          >
+            <Download size={13} /> Payment
+          </Link>
+        )}
+
+        {canOpenMap && (
+          <button
+            onClick={() => setMapOpen(true)}
+            className="btn-ghost text-xs px-3 py-1.5"
+          >
+            <MapPin size={13} /> Map
+          </button>
+        )}
+
+        <Link
+          href={`/dashboard/bookings/${appt.id}/receipt`}
+          className="btn-ghost text-xs px-3 py-1.5"
+          aria-label={`Open receipt for ${appt.professional.displayName}`}
+          title={`Open receipt for ${appt.professional.displayName}`}
+        >
+          <Download size={13} /> Receipt
+        </Link>
+
         {!isPast && (
           <button
             onClick={() => onOpenWorkflow(appt.id)}
@@ -445,6 +566,14 @@ function AppointmentCard({ appt, onCancel, onShare, onIcal, onConfirmDeposit, on
         </button>
 
         {/* Share link — NEW V1 FEATURE 4 */}
+
+      <LocationMapModal
+        open={mapOpen}
+        onClose={() => setMapOpen(false)}
+        provider={appt.clientLat != null && appt.clientLon != null ? { lat: Number(appt.clientLat), lng: Number(appt.clientLon) } : null}
+        title={`${appt.professional.displayName} location`}
+        subtitle="This map stays inside the app instead of opening Google Maps."
+      />
         <button
           onClick={() => onShare(appt.id)}
           disabled={shareLoading}

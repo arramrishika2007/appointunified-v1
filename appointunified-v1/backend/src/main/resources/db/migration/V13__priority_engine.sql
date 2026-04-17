@@ -1,4 +1,4 @@
--- V13 — Priority Engine (SLA, Fairness, Premium Tiers)
+-- V13 - Priority Engine (SLA, Fairness, Premium Tiers)
 
 -- Priority configuration per professional
 CREATE TABLE priority_rules (
@@ -12,7 +12,7 @@ CREATE TABLE priority_rules (
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(professional_id)
+    UNIQUE (professional_id)
 );
 
 -- SLA configuration per sector
@@ -24,7 +24,7 @@ CREATE TABLE sla_configs (
     escalation_target VARCHAR(50) NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(sector, priority_tier)
+    UNIQUE (sector, priority_tier)
 );
 
 -- Track SLA breaches
@@ -35,10 +35,7 @@ CREATE TABLE sla_events (
     breached_at TIMESTAMPTZ DEFAULT NOW(),
     resolved_at TIMESTAMPTZ,
     escalated_to UUID REFERENCES users(id),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    INDEX idx_appointment_sla (appointment_id),
-    INDEX idx_breach_time (breached_at DESC),
-    INDEX idx_escalation (escalated_to)
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Add premium_fee column to track priority booking fees
@@ -48,3 +45,6 @@ ALTER TABLE appointments
 CREATE INDEX idx_priority_rules_professional ON priority_rules(professional_id);
 CREATE INDEX idx_sla_configs_sector ON sla_configs(sector);
 CREATE INDEX idx_appointments_priority ON appointments(priority);
+CREATE INDEX idx_appointment_sla ON sla_events(appointment_id);
+CREATE INDEX idx_breach_time ON sla_events(breached_at DESC);
+CREATE INDEX idx_escalation ON sla_events(escalated_to);

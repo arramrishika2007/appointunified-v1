@@ -10,6 +10,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * V3: Redis (Upstash) configuration.
@@ -17,6 +18,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
  * TTL strategy: queue state expires at midnight (end of queue day).
  */
 @Configuration
+@Slf4j
 public class RedisConfig {
 
     @Value("${app.redis.url:${REDIS_URL:}}")
@@ -29,7 +31,8 @@ public class RedisConfig {
     @ConditionalOnMissingBean(RedisConnectionFactory.class)
     public LettuceConnectionFactory redisConnectionFactory() {
         if (redisUrl == null || redisUrl.isBlank()) {
-            throw new RuntimeException("Redis URL is not configured. Set app.redis.url or REDIS_URL");
+            log.warn("Redis URL is not configured. Falling back to localhost:6379 for development startup.");
+            return new LettuceConnectionFactory("localhost", 6379);
         }
         // Upstash provides a rediss:// URL with TLS
         // Parse host/port/password from the URL

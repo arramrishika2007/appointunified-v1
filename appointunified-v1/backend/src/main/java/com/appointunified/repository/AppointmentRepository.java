@@ -16,12 +16,29 @@ import java.util.UUID;
 
 @Repository
 public interface AppointmentRepository extends JpaRepository<Appointment, UUID> {
-    Page<Appointment> findByClientIdOrderByStartTimeDesc(UUID clientId, Pageable pageable);
-    Page<Appointment> findByProfessionalIdOrderByStartTimeAsc(UUID professionalId, Pageable pageable);
+       @Query("SELECT DISTINCT a FROM Appointment a " +
+              "LEFT JOIN FETCH a.client c " +
+              "LEFT JOIN FETCH a.professional p " +
+              "LEFT JOIN FETCH p.user pu " +
+              "LEFT JOIN FETCH a.service s " +
+              "WHERE (c.id = :userId OR pu.id = :userId) " +
+              "AND a.status NOT IN ('DRAFT', 'CANCELLED', 'EXPIRED') " +
+              "ORDER BY a.startTime DESC")
+       List<Appointment> findChatAppointmentsForUser(@Param("userId") UUID userId);
+
+       @Query("SELECT a FROM Appointment a WHERE a.client.id = :clientId ORDER BY a.startTime DESC")
+       Page<Appointment> findByClientIdOrderByStartTimeDesc(@Param("clientId") UUID clientId, Pageable pageable);
+
+       @Query("SELECT a FROM Appointment a WHERE a.professional.id = :professionalId ORDER BY a.startTime ASC")
+       Page<Appointment> findByProfessionalIdOrderByStartTimeAsc(@Param("professionalId") UUID professionalId, Pageable pageable);
+
     Optional<Appointment> findByShareToken(String shareToken);
+
        Optional<Appointment> findFirstByMeetingTokenIgnoreCase(String meetingToken);
-       long countByProfessionalId(UUID professionalId);
-       long countByProfessionalIdAndStatus(UUID professionalId, AppointmentStatus status);
+
+       long countByProfessional_Id(UUID professionalId);
+
+       long countByProfessional_IdAndStatus(UUID professionalId, AppointmentStatus status);
 
     @Query("SELECT a FROM Appointment a WHERE a.professional.id = :profId " +
            "AND a.startTime BETWEEN :from AND :to " +
@@ -36,4 +53,6 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
     boolean hasConflict(@Param("profId") UUID professionalId,
                         @Param("start") OffsetDateTime start,
                         @Param("end") OffsetDateTime end);
+
+    List<Appointment> findByStatusAndCreatedAtBefore(AppointmentStatus status, OffsetDateTime time);
 }

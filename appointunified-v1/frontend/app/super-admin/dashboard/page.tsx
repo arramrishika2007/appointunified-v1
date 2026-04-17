@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { CheckCircle2, Loader2, ShieldAlert, XCircle } from 'lucide-react'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
-import { Navbar } from '@/components/layout/Navbar'
+import { SuperAdminShell } from '@/components/layout/SuperAdminShell'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
@@ -90,21 +90,19 @@ export default function SuperAdminDashboardPage() {
 
 	if (!hasHydrated) {
 		return (
-			<>
-				<Navbar />
+			<SuperAdminShell>
 				<main className="min-h-screen bg-slate-50">
 					<div className="container-page py-16 flex justify-center">
 						<Loader2 size={28} className="animate-spin text-brand-600" />
 					</div>
 				</main>
-			</>
+			</SuperAdminShell>
 		)
 	}
 
 	return (
-		<>
-			<Navbar />
-			<main className="min-h-screen bg-slate-50 pt-20 sm:pt-24">
+		<SuperAdminShell>
+			<main className="min-h-screen bg-slate-50">
 				<div className="container-page py-6 sm:py-8">
 					<div className="mb-6 flex items-start gap-3 sm:items-center">
 						<div className="h-10 w-10 shrink-0 rounded-xl bg-red-100 flex items-center justify-center">
@@ -205,6 +203,6 @@ export default function SuperAdminDashboardPage() {
 					)}
 				</div>
 			</main>
-		</>
+		</SuperAdminShell>
 	)
 }

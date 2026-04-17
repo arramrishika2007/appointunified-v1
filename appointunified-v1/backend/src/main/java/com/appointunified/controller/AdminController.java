@@ -1,6 +1,7 @@
 package com.appointunified.controller;
 
 import com.appointunified.dto.response.ApiResponse;
+import com.appointunified.dto.response.PaymentResponse;
 import com.appointunified.entity.AdminAction;
 import com.appointunified.entity.Professional;
 import com.appointunified.enums.VerificationStatus;
@@ -8,6 +9,8 @@ import com.appointunified.exception.AppException;
 import com.appointunified.repository.AdminActionRepository;
 import com.appointunified.repository.VerificationDocumentRepository;
 import com.appointunified.service.VerificationService;
+import com.appointunified.service.PaymentService;
+import com.appointunified.service.IntegrationDiagnosticsService;
 import com.appointunified.repository.ProfessionalRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -51,6 +54,8 @@ public class AdminController {
     private final VerificationDocumentRepository verificationDocumentRepository;
     private final VerificationService verificationService;
     private final AdminActionRepository adminActionRepository;
+    private final PaymentService paymentService;
+    private final IntegrationDiagnosticsService integrationDiagnosticsService;
 
     // ─── Verification Queue ──────────────────────────────────────────────────
 
@@ -235,6 +240,23 @@ public class AdminController {
         p.setAcceptingBookings(true);
         professionalRepository.save(p);
         return ResponseEntity.ok(ApiResponse.ok("Professional reinstated", null));
+    }
+
+    // ─── Refunds / Disputes ──────────────────────────────────────────────────
+
+    @PatchMapping("/payments/{paymentOrderId}/refund")
+    @Operation(summary = "Refund a specific payment order")
+    public ResponseEntity<ApiResponse<PaymentResponse.OrderDetails>> refundPaymentOrder(
+            @PathVariable UUID paymentOrderId,
+            @AuthenticationPrincipal UUID adminId) {
+        PaymentResponse.OrderDetails details = paymentService.refund(paymentOrderId, adminId);
+        return ResponseEntity.ok(ApiResponse.ok("Refund processed successfully", details));
+    }
+
+    @GetMapping("/integrations/status")
+    @Operation(summary = "Get integration key/config health report")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> integrationStatus() {
+        return ResponseEntity.ok(ApiResponse.ok(integrationDiagnosticsService.getIntegrationStatusReport()));
     }
 
     // ─── Inner DTOs ──────────────────────────────────────────────────────────

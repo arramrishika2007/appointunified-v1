@@ -48,6 +48,23 @@ public class AppointmentController {
         return ResponseEntity.ok(ApiResponse.ok(appointmentService.getMyAppointments(userId, pageable)));
     }
 
+    @GetMapping("/professional/me")
+    @PreAuthorize("hasRole('PROFESSIONAL')")
+    @Operation(summary = "Get my professional appointments")
+    public ResponseEntity<ApiResponse<Page<AppointmentResponse.Summary>>> getMyProfessionalAppointments(
+            @AuthenticationPrincipal UUID userId,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(appointmentService.getMyProfessionalAppointments(userId, pageable)));
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Get a single appointment I can access")
+    public ResponseEntity<ApiResponse<AppointmentResponse.Summary>> getMyAppointmentById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UUID userId) {
+        return ResponseEntity.ok(ApiResponse.ok(appointmentService.getMyAppointmentById(id, userId)));
+    }
+
     @PutMapping("/{id}/cancel")
     @Operation(summary = "Cancel an appointment")
     public ResponseEntity<ApiResponse<AppointmentResponse.Summary>> cancel(
@@ -111,6 +128,14 @@ public class AppointmentController {
             @PathVariable UUID id,
             @AuthenticationPrincipal UUID userId) {
         return ResponseEntity.ok(ApiResponse.ok(appointmentService.getShareInfo(id, userId)));
+    }
+
+    @GetMapping("/{id}/booking-form")
+    @Operation(summary = "Generate booking form text with distance and token")
+    public ResponseEntity<ApiResponse<AppointmentResponse.BookingForm>> getBookingForm(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UUID userId) {
+        return ResponseEntity.ok(ApiResponse.ok(appointmentService.generateBookingForm(id, userId)));
     }
 
     // NEW V1 FEATURE 4: iCal download (public)

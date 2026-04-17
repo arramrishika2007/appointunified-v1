@@ -1,10 +1,10 @@
 import { BadgeTier, ComplaintPriority } from '@/types/v2'
 
 export const BADGE_CONFIG: Record<BadgeTier, { label: string; color: string; bg: string; icon: string }> = {
-  NONE: { label: 'Unverified', color: 'text-slate-600', bg: 'bg-slate-100', icon: '○' },
-  BRONZE: { label: 'Bronze Verified', color: 'text-amber-700', bg: 'bg-amber-100', icon: '🥉' },
-  SILVER: { label: 'Silver Verified', color: 'text-slate-700', bg: 'bg-slate-200', icon: '🥈' },
-  GOLD: { label: 'Gold Verified', color: 'text-yellow-800', bg: 'bg-yellow-100', icon: '🥇' },
+  NONE: { label: 'Unverified', color: 'text-slate-600', bg: 'bg-slate-100', icon: 'N' },
+  BRONZE: { label: 'Bronze Verified', color: 'text-amber-700', bg: 'bg-amber-100', icon: 'B' },
+  SILVER: { label: 'Silver Verified', color: 'text-slate-700', bg: 'bg-slate-200', icon: 'S' },
+  GOLD: { label: 'Gold Verified', color: 'text-yellow-800', bg: 'bg-yellow-100', icon: 'G' },
 }
 
 export const DOC_TYPE_CONFIG: Record<string, { label: string; hint?: string }> = {

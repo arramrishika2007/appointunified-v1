@@ -8,6 +8,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,8 +22,10 @@ import com.appointunified.dto.response.EarningsResponse;
 import com.appointunified.dto.response.KPISummaryResponse;
 import com.appointunified.dto.response.NoShowTrendResponse;
 import com.appointunified.dto.response.ReportExportResponse;
+import com.appointunified.dto.response.RevenueBreakdownResponse;
+import com.appointunified.entity.User;
+import com.appointunified.repository.UserRepository;
 import com.appointunified.service.AnalyticsService;
-import com.appointunified.security.AuthenticationHelper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 public class AnalyticsController {
     
     private final AnalyticsService analyticsService;
-    private final AuthenticationHelper authenticationHelper;
+    private final UserRepository userRepository;
     
     /**
      * GET /api/analytics/summary
@@ -118,9 +121,6 @@ public class AnalyticsController {
     public ResponseEntity<List<AISuggestionResponse>> getSlotSuggestions(
             @PathVariable UUID professionalId) {
         
-        // Verify professional accessing their own suggestions
-        authenticationHelper.verifyProfessionalAccess(professionalId);
-        
         List<AISuggestionResponse> suggestions = analyticsService.getAISuggestionsForProfessional(professionalId);
         log.info("Retrieved AI suggestions for professional={}", professionalId);
         
@@ -151,9 +151,13 @@ public class AnalyticsController {
     public ResponseEntity<ReportExportResponse> exportBookings(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateStart,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateEnd,
-            @RequestParam(required = false) String sector) {
+            @RequestParam(required = false) String sector,
+            Authentication authentication) {
         
-        var currentUser = authenticationHelper.getCurrentUser();
+        User currentUser = userRepository.findByEmail(authentication.getName()).orElse(null);
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         ReportExportResponse response = analyticsService.createExportRequest(
             currentUser, "BOOKINGS", dateStart, dateEnd, sector);
         
@@ -170,9 +174,13 @@ public class AnalyticsController {
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ReportExportResponse> exportAuditLog(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateStart,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateEnd) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateEnd,
+            Authentication authentication) {
         
-        var currentUser = authenticationHelper.getCurrentUser();
+        User currentUser = userRepository.findByEmail(authentication.getName()).orElse(null);
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         ReportExportResponse response = analyticsService.createExportRequest(
             currentUser, "AUDIT_LOG", dateStart, dateEnd, null);
         

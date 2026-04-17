@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">ABS Brand Logo</title>
+  <desc id="desc">Blue and green monogram with a check mark.</desc>
+  <defs>
+    <linearGradient id="g-main" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1f3f96" />
+      <stop offset="100%" stop-color="#2ecf8c" />
+    </linearGradient>
+    <linearGradient id="g-check" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#22c55e" />
+      <stop offset="100%" stop-color="#16a34a" />
+    </linearGradient>
+  </defs>
+
+  <rect x="8" y="8" width="240" height="240" rx="48" fill="#ffffff" />
+
+  <path d="M70 46h62c21 0 39 16 39 37c0 10-4 20-11 27l-58 56c-9 9-14 21-14 33c0 19 15 34 34 34h44" fill="none" stroke="url(#g-main)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M185 46h-28c24 0 43 19 43 43c0 17-10 33-26 40c17 7 29 23 29 42c0 26-21 47-47 47h-36" fill="none" stroke="url(#g-main)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M76 136l32 32l74-82" fill="none" stroke="url(#g-check)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <g fill="#cfd8e6">
+    <circle cx="96" cy="98" r="4"/><circle cx="112" cy="98" r="4"/><circle cx="128" cy="98" r="4"/>
+    <circle cx="96" cy="114" r="4"/><circle cx="112" cy="114" r="4"/><circle cx="128" cy="114" r="4"/>
+    <circle cx="164" cy="170" r="4"/><circle cx="180" cy="170" r="4"/><circle cx="196" cy="170" r="4"/>
+    <circle cx="164" cy="186" r="4"/><circle cx="180" cy="186" r="4"/><circle cx="196" cy="186" r="4"/>
+  </g>
+</svg>

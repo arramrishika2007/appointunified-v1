@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { addDays, format, isBefore, startOfDay, startOfMonth } from 'date-fns'
-import { ArrowLeft, Calendar, Check, Clock, FileText, Loader2, MapPin, MessageSquare, Monitor } from 'lucide-react'
+import { ArrowLeft, Calendar, Check, Clock, ExternalLink, FileText, Loader2, MapPin, MessageSquare, Monitor, Wifi } from 'lucide-react'
 import Link from 'next/link'
 import { Navbar } from '@/components/layout/Navbar'
 import { appointmentsApi, geoApi, professionalsApi, waitlistApi } from '@/lib/api'
@@ -13,6 +14,9 @@ import { cn, formatCurrency, formatTimeOnly } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 import { BespokeBookingCalendar } from '@/components/booking/BespokeBookingCalendar'
+import { LocationMapModal } from '@/components/booking/LocationMapModal'
+
+const OfflineLiveMap = dynamic(() => import('@/components/booking/OfflineLiveMap'), { ssr: false })
 
 const STEPS = ['Service', 'Schedule', 'Confirm']
 
@@ -39,11 +43,14 @@ export default function BookingPage() {
   const [slots, setSlots] = useState<AvailableSlot[]>([])
   const [slotsLoading, setSlotsLoading] = useState(false)
   const [step, setStep] = useState(1)
+  const [meetingMode, setMeetingMode] = useState<'ONLINE' | 'OFFLINE'>('OFFLINE')
   const [submitting, setSubmitting] = useState(false)
   const [showWaitlistCta, setShowWaitlistCta] = useState(false)
   const [joiningWaitlist, setJoiningWaitlist] = useState(false)
   const [travelInfo, setTravelInfo] = useState<{ distanceKm: number; durationMinutes: number } | null>(null)
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [travelLoading, setTravelLoading] = useState(false)
+  const [mapOpen, setMapOpen] = useState(false)
   const providerServices = Array.isArray(provider?.services) ? provider.services : []
 
   // Redirect if not authenticated
@@ -65,7 +72,11 @@ export default function BookingPage() {
         setProvider(p)
         if (preselectedServiceId) {
           const svc = p.services.find((s) => s.id === preselectedServiceId)
-          if (svc) { setSelectedService(svc); setStep(2) }
+          if (svc) {
+            setSelectedService(svc)
+            setMeetingMode(svc.isVirtual ? 'ONLINE' : 'OFFLINE')
+            setStep(2)
+          }
         }
       })
       .catch(() => {
@@ -112,12 +123,26 @@ export default function BookingPage() {
         serviceId: selectedService.id,
         startTime: selectedSlot.startTime,
         notes: notes || undefined,
-        virtual: selectedService.isVirtual,
+        virtual: meetingMode === 'ONLINE',
+        clientLat: meetingMode === 'OFFLINE' ? userLocation?.lat : undefined,
+        clientLon: meetingMode === 'OFFLINE' ? userLocation?.lng : undefined,
         workflowInstanceId: workflowInstanceId || undefined,
         workflowStepOrder: normalizedWorkflowStepOrder,
       })
-      toast.success('Appointment booked! Confirmation sent to your email.')
-      router.push(`/dashboard/bookings?booked=${res.data.data.id}`)
+      
+      const appointmentId = res.data.data.id
+      const appointmentData = res.data.data
+      
+      // Check if this is an online booking that requires payment
+      if (meetingMode === 'ONLINE') {
+        // Redirect to confirmation page with payment flow
+        router.push(`/booking/confirm?appointmentId=${appointmentId}`)
+        toast.success('Appointment booked! Proceeding to payment.')
+      } else {
+        // Offline booking - no payment required
+        toast.success('Appointment booked! Confirmation sent to your email.')
+        router.push(`/dashboard/bookings?booked=${appointmentId}`)
+      }
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Booking failed. Please try again.'
       toast.error(msg)
@@ -147,22 +172,34 @@ export default function BookingPage() {
     }
   }
 
+  const fetchTravelEstimate = async (lat: number, lng: number) => {
+    if (!provider?.latitude || !provider?.longitude) return
+    try {
+      const res = await geoApi.getTravelTime({
+        fromLat: lat,
+        fromLng: lng,
+        toLat: Number(provider.latitude),
+        toLng: Number(provider.longitude),
+      })
+      setTravelInfo({
+        distanceKm: Number(res.data.data.distanceKm),
+        durationMinutes: Number(res.data.data.durationMinutes),
+      })
+    } catch {
+      toast.error('Could not estimate travel time')
+    }
+  }
+
   const estimateTravel = async () => {
     if (!provider?.latitude || !provider?.longitude || !navigator.geolocation) return
     setTravelLoading(true)
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
+        const lat = pos.coords.latitude
+        const lng = pos.coords.longitude
+        setUserLocation({ lat, lng })
         try {
-          const res = await geoApi.getTravelTime({
-            fromLat: pos.coords.latitude,
-            fromLng: pos.coords.longitude,
-            toLat: Number(provider.latitude),
-            toLng: Number(provider.longitude),
-          })
-          setTravelInfo({
-            distanceKm: Number(res.data.data.distanceKm),
-            durationMinutes: Number(res.data.data.durationMinutes),
-          })
+          await fetchTravelEstimate(lat, lng)
         } catch {
           toast.error('Could not estimate travel time')
         } finally {
@@ -172,6 +209,24 @@ export default function BookingPage() {
       () => setTravelLoading(false),
       { enableHighAccuracy: true, timeout: 10000 }
     )
+  }
+
+  useEffect(() => {
+    if (step !== 2) return
+    if (!selectedService || meetingMode === 'ONLINE') return
+    if (!provider?.latitude || !provider?.longitude) return
+
+    void estimateTravel()
+    const timer = setInterval(() => {
+      void estimateTravel()
+    }, 30000)
+
+    return () => clearInterval(timer)
+  }, [step, selectedService, meetingMode, provider?.latitude, provider?.longitude])
+
+  const openProviderMap = () => {
+    if (!provider?.latitude || !provider?.longitude) return
+    setMapOpen(true)
   }
 
   if (!provider) {
@@ -242,7 +297,11 @@ export default function BookingPage() {
                     {providerServices.filter((s) => s.isActive).map((svc) => (
                       <button
                         key={svc.id}
-                        onClick={() => { setSelectedService(svc); setStep(2) }}
+                        onClick={() => {
+                          setSelectedService(svc)
+                          setMeetingMode(svc.isVirtual ? 'ONLINE' : 'OFFLINE')
+                          setStep(2)
+                        }}
                         className="w-full relative group rounded-xl border-2 border-slate-100 hover:border-brand-400 bg-white hover:bg-brand-50/20 p-5 text-left transition-all hover:-translate-y-0.5 shadow-sm hover:shadow-md"
                       >
                         <div className="flex items-start justify-between">
@@ -251,7 +310,11 @@ export default function BookingPage() {
                             {svc.description && <p className="text-sm text-slate-500 mt-1 line-clamp-2 leading-relaxed">{svc.description}</p>}
                             <div className="flex items-center gap-3 mt-3 text-[11px] text-slate-400 font-medium">
                               <span className="flex items-center gap-1"><Clock size={12} /> {svc.durationMinutes} min</span>
-                              {svc.isVirtual && <span className="inline-flex items-center gap-1"><Monitor size={11} /> Virtual</span>}
+                              {svc.isVirtual ? (
+                                <span className="inline-flex items-center gap-1 text-brand-600"><Wifi size={11} /> Online</span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-slate-500"><MapPin size={11} /> Offline</span>
+                              )}
                               {svc.requiresDocuments && <span className="inline-flex items-center gap-1"><FileText size={11} /> Documents req.</span>}
                             </div>
                           </div>
@@ -273,18 +336,68 @@ export default function BookingPage() {
                 </div>
                 <p className="text-sm text-slate-500 mb-5">Service: <span className="font-medium text-slate-800">{selectedService?.name}</span></p>
 
-                {selectedService && !selectedService.isVirtual && (
-                  <div className="mb-5 rounded-xl border border-slate-200 bg-white p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-xs text-slate-600 inline-flex items-center gap-1"><MapPin size={12} /> Offline appointment travel estimate</p>
-                      <button onClick={estimateTravel} className="btn-ghost text-xs" disabled={travelLoading}>
-                        {travelLoading ? <><Loader2 size={12} className="animate-spin" /> Estimating…</> : 'Estimate'}
+                {selectedService && (
+                  <div className="mb-5 space-y-3 rounded-xl border border-slate-200 bg-white p-3 text-xs font-medium">
+                    <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 p-1">
+                      <button
+                        type="button"
+                        onClick={() => setMeetingMode('ONLINE')}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-full px-3 py-1 transition-colors',
+                          meetingMode === 'ONLINE' ? 'bg-brand-600 text-white' : 'text-slate-600 hover:bg-slate-200'
+                        )}
+                      >
+                        <Monitor size={12} /> Online
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => setMeetingMode('OFFLINE')}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-full px-3 py-1 transition-colors',
+                          meetingMode === 'OFFLINE' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-200'
+                        )}
+                      >
+                        <MapPin size={12} /> Offline
+                      </button>
+                    </div>
+
+                    <span className={cn('inline-flex items-center gap-1.5 rounded-full px-3 py-1', meetingMode === 'ONLINE' ? 'bg-brand-100 text-brand-700' : 'bg-slate-100 text-slate-600')}>
+                      {meetingMode === 'ONLINE' ? <><Monitor size={12} /> Online booking</> : <><MapPin size={12} /> Offline booking</>}
+                    </span>
+                    <span className="text-slate-500">
+                      {meetingMode === 'ONLINE'
+                        ? 'You will get an online meeting link after booking.'
+                        : 'Offline mode uses map-led travel checks and skips payment confirmation steps.'}
+                    </span>
+                  </div>
+                )}
+
+                {selectedService && meetingMode === 'OFFLINE' && (
+                  <div className="mb-5 rounded-xl border border-slate-200 bg-white p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs text-slate-600 inline-flex items-center gap-1"><MapPin size={12} /> Offline map and travel estimate</p>
+                      <div className="flex items-center gap-2">
+                        <button onClick={openProviderMap} className="btn-ghost text-xs" disabled={!provider.latitude || !provider.longitude}>
+                          <ExternalLink size={12} /> Open Map
+                        </button>
+                        <button onClick={estimateTravel} className="btn-ghost text-xs" disabled={travelLoading}>
+                        {travelLoading ? <><Loader2 size={12} className="animate-spin" /> Estimating…</> : 'Estimate'}
+                        </button>
+                      </div>
                     </div>
                     {travelInfo && (
                       <p className="text-xs text-slate-500 mt-2">
                         Professional is {travelInfo.distanceKm.toFixed(1)} km away · Estimated travel time: {travelInfo.durationMinutes} mins
                       </p>
+                    )}
+                    {provider.latitude && provider.longitude && (
+                      <div className="mt-3">
+                        <OfflineLiveMap
+                          provider={{ lat: Number(provider.latitude), lng: Number(provider.longitude) }}
+                          client={userLocation}
+                        />
+                        <p className="mt-2 text-[11px] text-slate-500">Map is the primary view for offline booking. Use Open Map anytime to open the same map inside the app.</p>
+                      </div>
                     )}
                   </div>
                 )}
@@ -371,8 +484,18 @@ export default function BookingPage() {
                 </button>
 
                 <p className="text-xs text-center text-slate-400 mt-3">
-                  You will receive a confirmation email with your appointment details and iCal download link.
+                  {meetingMode === 'ONLINE'
+                    ? 'You will receive a confirmation email with meeting details and payment timeline.'
+                    : 'You will receive offline booking confirmation with map and visit details. Payment confirmation is skipped for offline mode.'}
                 </p>
+
+                {meetingMode === 'OFFLINE' && (
+                  <div className="mt-3 flex justify-center">
+                    <button onClick={openProviderMap} className="btn-ghost text-xs px-3 py-2" disabled={!provider.latitude || !provider.longitude}>
+                      <ExternalLink size={13} /> View Map Anytime
+                    </button>
+                  </div>
+                )}
 
                 {showWaitlistCta && (
                   <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
@@ -410,6 +533,15 @@ export default function BookingPage() {
                     </div>
                   </div>
 
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={cn('badge text-xs', provider.acceptingBookings ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500')}>
+                        {provider.acceptingBookings ? 'Accepting bookings' : 'Bookings closed'}
+                      </span>
+                        <span className={cn('badge text-xs', meetingMode === 'ONLINE' ? 'bg-brand-100 text-brand-700' : 'bg-slate-100 text-slate-600')}>
+                          {meetingMode}
+                      </span>
+                    </div>
+
                   <div className="space-y-4 text-sm px-1 py-2">
                     <div className="flex justify-between items-start gap-4">
                       <span className="text-slate-500 flex-shrink-0">Service</span>
@@ -434,6 +566,15 @@ export default function BookingPage() {
             </div>
           </div>
         </div>
+
+        <LocationMapModal
+          open={mapOpen}
+          onClose={() => setMapOpen(false)}
+          provider={provider?.latitude != null && provider?.longitude != null ? { lat: Number(provider.latitude), lng: Number(provider.longitude) } : null}
+          client={userLocation}
+          title={`${provider?.displayName || 'Provider'} location`}
+          subtitle="This map stays inside the app instead of opening a new tab."
+        />
       </main>
     </>
   )

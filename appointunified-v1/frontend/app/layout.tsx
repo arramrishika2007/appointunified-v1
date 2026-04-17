@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { Toaster } from 'react-hot-toast'
 import { SWRProvider } from '@/components/layout/SWRProvider'
+import { AppModuleShell } from '@/components/layout/AppModuleShell'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
@@ -23,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased bg-primary text-primary`}>
         <SWRProvider>
-          {children}
+          <AppModuleShell>{children}</AppModuleShell>
         </SWRProvider>
         <Toaster
           position="top-right"

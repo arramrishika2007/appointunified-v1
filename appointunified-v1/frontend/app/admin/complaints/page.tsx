@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { Loader2, MessageSquareWarning } from 'lucide-react'
-import { Navbar } from '@/components/layout/Navbar'
+import { AdminShell } from '@/components/layout/AdminShell'
 import { useAuthStore } from '@/lib/store'
 import { complaintApi } from '@/lib/api-v2'
 import { Complaint, ComplaintPriority } from '@/types/v2'
@@ -24,6 +24,7 @@ export default function AdminComplaintsPage() {
   const [resolutionText, setResolutionText] = useState('')
   const [showResolution, setShowResolution] = useState<string | null>(null)
   const [suspendOnResolve, setSuspendOnResolve] = useState(false)
+  const refreshTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!isAuthenticated || !['ADMIN', 'SUPER_ADMIN'].includes(user?.role ?? '')) {
@@ -33,12 +34,35 @@ export default function AdminComplaintsPage() {
   }, [isAuthenticated, user, router])
 
   useEffect(() => {
-    setLoading(true)
-    complaintApi
-      .list(activeTab)
-      .then((res) => setComplaints(res.data.data.content ?? []))
-      .catch(() => setComplaints([]))
-      .finally(() => setLoading(false))
+    const loadComplaints = async (silent = false) => {
+      if (!silent) {
+        setLoading(true)
+      }
+      try {
+        const res = await complaintApi.list(activeTab)
+        setComplaints(res.data.data.content ?? [])
+      } catch {
+        setComplaints([])
+      } finally {
+        if (!silent) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void loadComplaints(false)
+
+    refreshTimerRef.current = window.setInterval(() => {
+      void complaintApi.list(activeTab)
+        .then((res) => setComplaints(res.data.data.content ?? []))
+        .catch(() => {})
+    }, 15000)
+
+    return () => {
+      if (refreshTimerRef.current) {
+        window.clearInterval(refreshTimerRef.current)
+      }
+    }
   }, [activeTab])
 
   const handleResolve = async (id: string) => {
@@ -77,8 +101,7 @@ export default function AdminComplaintsPage() {
   }
 
   return (
-    <>
-      <Navbar />
+    <AdminShell>
       <main className="min-h-screen bg-slate-50">
         <div className="container-page py-8 max-w-4xl">
           <div className="flex items-center gap-3 mb-6">
@@ -170,7 +193,7 @@ export default function AdminComplaintsPage() {
                                 onChange={(event) => setSuspendOnResolve(event.target.checked)}
                                 className="rounded border-red-300 text-red-600"
                               />
-                              Also suspend this professional's account
+                              Also suspend this professional&apos;s account
                             </label>
                             <div className="flex gap-2">
                               <button onClick={() => handleResolve(c.id)} disabled={actionLoading === c.id} className="btn-primary text-xs px-3 py-1.5">
@@ -199,6 +222,6 @@ export default function AdminComplaintsPage() {
           )}
         </div>
       </main>
-    </>
+    </AdminShell>
   )
 }

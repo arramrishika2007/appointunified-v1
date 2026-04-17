@@ -18,4 +18,8 @@ public interface ReviewRepository extends JpaRepository<Review, UUID> {
     boolean existsByAppointmentId(UUID appointmentId);
 
     Optional<Review> findByAppointmentId(UUID appointmentId);
+
+    Page<Review> findByReviewerIdOrderByCreatedAtDesc(UUID reviewerId, Pageable pageable);
+
+    long countByReviewerId(UUID reviewerId);
 }

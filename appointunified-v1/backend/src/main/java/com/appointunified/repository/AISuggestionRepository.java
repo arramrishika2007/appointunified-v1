@@ -2,6 +2,7 @@ package com.appointunified.repository;
 
 import java.util.List;
 import java.util.UUID;
+import java.time.OffsetDateTime;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -16,19 +17,20 @@ public interface AISuggestionRepository extends JpaRepository<AISuggestion, UUID
     /**
      * Find all active suggestions for a professional, ordered by most recent first
      */
-    List<AISuggestion> findByProfessionalIdAndIsActiveTrueOrderByGeneratedAtDesc(UUID professionalId);
+    List<AISuggestion> findByProfessional_IdAndIsActiveTrueOrderByGeneratedAtDesc(UUID professionalId);
     
     /**
      * Find the latest active suggestion for a professional
      */
-    @Query("SELECT a FROM AISuggestion a WHERE a.professional.id = :professionalId AND a.isActive = true ORDER BY a.generatedAt DESC LIMIT 1")
-    AISuggestion findLatestActiveSuggestionForProfessional(@Param("professionalId") UUID professionalId);
+    AISuggestion findFirstByProfessional_IdAndIsActiveTrueOrderByGeneratedAtDesc(UUID professionalId);
     
     /**
      * Find all suggestions generated today for a professional
      */
-    @Query("SELECT a FROM AISuggestion a WHERE a.professional.id = :professionalId AND DATE(a.generatedAt) = CURRENT_DATE AND a.isActive = true")
-    List<AISuggestion> findTodaysSuggestionsForProfessional(@Param("professionalId") UUID professionalId);
+    @Query("SELECT a FROM AISuggestion a WHERE a.professional.id = :professionalId AND a.generatedAt >= :startOfDay AND a.generatedAt < :startOfNextDay AND a.isActive = true ORDER BY a.generatedAt DESC")
+    List<AISuggestion> findTodaysSuggestionsForProfessional(@Param("professionalId") UUID professionalId,
+                                                            @Param("startOfDay") OffsetDateTime startOfDay,
+                                                            @Param("startOfNextDay") OffsetDateTime startOfNextDay);
     
     /**
      * Find high-impact suggestions across all professionals

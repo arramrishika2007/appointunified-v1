@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
@@ -23,14 +23,37 @@ export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const accessRole = searchParams.get('role')
+  const prefillIdentifier = searchParams.get('identifier')
+  const prefillPassword = searchParams.get('password')
   const { login } = useAuthStore()
   const [showPassword, setShowPassword] = useState(false)
 
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({ resolver: zodResolver(schema) })
+
+  useEffect(() => {
+    if (prefillIdentifier) {
+      setValue('identifier', prefillIdentifier, { shouldValidate: true })
+    }
+    if (prefillPassword) {
+      setValue('password', prefillPassword, { shouldValidate: true })
+    }
+
+    if (!prefillIdentifier && !prefillPassword) {
+      return
+    }
+
+    // Avoid keeping credentials in browser history and server logs.
+    const nextParams = new URLSearchParams(searchParams.toString())
+    nextParams.delete('identifier')
+    nextParams.delete('password')
+    const nextQuery = nextParams.toString()
+    router.replace(nextQuery ? `/auth/login?${nextQuery}` : '/auth/login')
+  }, [prefillIdentifier, prefillPassword, router, searchParams, setValue])
 
   const onSubmit = async (data: FormData) => {
     try {

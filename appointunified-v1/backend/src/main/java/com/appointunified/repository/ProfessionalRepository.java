@@ -20,8 +20,10 @@ import java.util.UUID;
 public interface ProfessionalRepository extends JpaRepository<Professional, UUID> {
     Optional<Professional> findByUserId(UUID userId);
 
-       @EntityGraph(attributePaths = {"user"})
-       Optional<Professional> findWithUserById(UUID id);
+    @EntityGraph(attributePaths = {"user"})
+    Optional<Professional> findWithUserById(UUID id);
+
+    long countByVerificationStatus(VerificationStatus status);
 
     Page<Professional> findBySectorAndVerificationStatus(Sector sector, VerificationStatus status, Pageable pageable);
 

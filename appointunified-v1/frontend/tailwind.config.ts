@@ -14,7 +14,11 @@ const config: Config = {
         secondary: 'var(--bg-secondary)',
         elevated: 'var(--bg-elevated)',
         subtle: 'var(--bg-subtle)',
-        border: 'var(--border)',
+        border: {
+          DEFAULT: 'var(--border)',
+          focus: 'var(--border-focus)',
+          card: 'var(--border-card)',
+        },
         'border-focus': 'var(--border-focus)',
         'border-card': 'var(--border-card)',
         'text-primary': 'var(--text-primary)',

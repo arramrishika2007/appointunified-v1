@@ -170,7 +170,7 @@ export default function ProfessionalOnboardingPage() {
             </div>
           </div>
           <h1 className="text-3xl font-extrabold text-text-primary tracking-tight">Professional Onboarding</h1>
-          <p className="text-text-secondary text-sm font-medium mt-2">Let's get your profile set up. Verification takes 24–48 hours.</p>
+          <p className="text-text-secondary text-sm font-medium mt-2">Let&apos;s get your profile set up. Verification takes 24–48 hours.</p>
         </div>
 
         {/* Progress Tracker */}

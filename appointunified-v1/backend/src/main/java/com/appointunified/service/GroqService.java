@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -24,11 +25,13 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RequiredArgsConstructor
 public class GroqService {
+
+    private static final String FALLBACK_MODEL = "llama-3.3-70b-versatile";
     
     @Value("${groq.api.key:}")
     private String groqApiKey;
     
-    @Value("${groq.api.model:llama3-70b-8192}")
+    @Value("${groq.api.model:" + FALLBACK_MODEL + "}")
     private String groqModel;
     
     private static final String GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
@@ -52,28 +55,18 @@ public class GroqService {
             log.warn("Groq API key not configured, returning empty response");
             return "";
         }
-        
-        try {
-            Map<String, Object> requestBody = buildRequestBody(prompt, maxTokens, temperature);
-            
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Authorization", "Bearer " + groqApiKey);
-            
-            HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
-            
-            ResponseEntity<String> response = restTemplate.postForEntity(GROQ_API_URL, request, String.class);
-            
-            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                return extractContentFromResponse(response.getBody());
-            } else {
-                log.error("Groq API error: status={}, body={}", response.getStatusCode(), response.getBody());
-                return "";
-            }
-        } catch (Exception e) {
-            log.error("Error calling Groq API", e);
-            return "";
+
+        String response = requestCompletion(prompt, maxTokens, temperature, groqModel);
+        if (!response.isBlank()) {
+            return response;
         }
+
+        if (!FALLBACK_MODEL.equals(groqModel)) {
+            log.warn("Groq primary model '{}' returned empty content, retrying with fallback model '{}'", groqModel, FALLBACK_MODEL);
+            return requestCompletion(prompt, maxTokens, temperature, FALLBACK_MODEL);
+        }
+
+        return "";
     }
     
     /**
@@ -127,9 +120,9 @@ public class GroqService {
     
     // ==================== Private Helper Methods ====================
     
-    private Map<String, Object> buildRequestBody(String prompt, int maxTokens, float temperature) {
+    private Map<String, Object> buildRequestBody(String prompt, int maxTokens, float temperature, String model) {
         Map<String, Object> body = new HashMap<>();
-        body.put("model", groqModel);
+        body.put("model", model);
         body.put("temperature", temperature);
         body.put("max_tokens", maxTokens);
         
@@ -143,6 +136,32 @@ public class GroqService {
         
         return body;
     }
+
+    private String requestCompletion(String prompt, int maxTokens, float temperature, String model) {
+        try {
+            Map<String, Object> requestBody = buildRequestBody(prompt, maxTokens, temperature, model);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Authorization", "Bearer " + groqApiKey);
+
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
+            ResponseEntity<String> response = restTemplate.postForEntity(GROQ_API_URL, request, String.class);
+
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                return extractContentFromResponse(response.getBody());
+            }
+
+            log.error("Groq API error: model={}, status={}, body={}", model, response.getStatusCode(), response.getBody());
+            return "";
+        } catch (RestClientResponseException e) {
+            log.error("Groq API HTTP error: model={}, status={}, body={}", model, e.getRawStatusCode(), e.getResponseBodyAsString());
+            return "";
+        } catch (Exception e) {
+            log.error("Error calling Groq API with model={}", model, e);
+            return "";
+        }
+    }
     
     private String extractContentFromResponse(String responseBody) {
         try {
@@ -152,9 +171,26 @@ public class GroqService {
             if (choices != null && choices.isArray() && choices.size() > 0) {
                 JsonNode firstChoice = choices.get(0);
                 JsonNode message = firstChoice.get("message");
-                JsonNode content = message.get("content");
-                
-                return content.asText("");
+                JsonNode content = message != null ? message.get("content") : null;
+
+                if (content == null || content.isNull()) {
+                    return "";
+                }
+
+                if (content.isTextual()) {
+                    return content.asText("").trim();
+                }
+
+                // Some providers may return content as an array of parts.
+                if (content.isArray()) {
+                    StringBuilder merged = new StringBuilder();
+                    for (JsonNode part : content) {
+                        if (part.has("text")) {
+                            merged.append(part.get("text").asText(""));
+                        }
+                    }
+                    return merged.toString().trim();
+                }
             }
             
             log.warn("Unexpected Groq API response structure: {}", responseBody);

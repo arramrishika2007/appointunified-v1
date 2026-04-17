@@ -1,18 +1,34 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { ArrowLeft, Wifi, WifiOff } from 'lucide-react'
+import { ArrowLeft, Calendar, Loader2, Wifi, WifiOff } from 'lucide-react'
 import Link from 'next/link'
 import { Navbar } from '@/components/layout/Navbar'
+import { appointmentsApi } from '@/lib/api'
+import { useAuthStore } from '@/lib/store'
+import { AppointmentSummary } from '@/types'
 import { useQueueStatus, useMyQueuePosition } from '@/hooks/useQueue'
 import { QueueBoard, MyPositionWidget, BroadcastBanner } from '@/components/queue/QueueDisplay'
-import { cn } from '@/lib/utils'
+import { cn, formatDateTime } from '@/lib/utils'
 
 export default function QueueTrackerPage() {
   const searchParams = useSearchParams()
   const professionalId  = searchParams.get('professional')
   const appointmentId   = searchParams.get('appointment')
   const professionalName = searchParams.get('name') ?? 'Provider'
+  const { isAuthenticated, hasHydrated } = useAuthStore()
+  const [appointments, setAppointments] = useState<AppointmentSummary[]>([])
+  const [loadingAppointments, setLoadingAppointments] = useState(true)
+
+  useEffect(() => {
+    if (!hasHydrated || !isAuthenticated) return
+
+    appointmentsApi.getMyAppointments({ size: 50, sort: 'startTime,asc' })
+      .then((response) => setAppointments(response.data.data.content ?? []))
+      .catch(() => setAppointments([]))
+      .finally(() => setLoadingAppointments(false))
+  }, [hasHydrated, isAuthenticated])
 
   const { status, loading, connected, broadcasts, dismissBroadcast } =
     useQueueStatus(professionalId)
@@ -23,9 +39,49 @@ export default function QueueTrackerPage() {
     return (
       <>
         <Navbar />
-        <div className="container-page py-20 text-center">
-          <p className="text-slate-500">Invalid queue link. No professional ID specified.</p>
-        </div>
+        <main className="min-h-screen bg-slate-50">
+          <div className="container-page py-8 max-w-5xl">
+            <div className="mb-6 flex items-center gap-3">
+              <Link href="/dashboard/bookings" className="btn-ghost p-2">
+                <ArrowLeft size={18} />
+              </Link>
+              <div>
+                <h1 className="text-xl font-bold text-slate-900">My Queue</h1>
+                <p className="text-sm text-slate-500">Open a live queue from one of your upcoming appointments.</p>
+              </div>
+            </div>
+
+            {loadingAppointments ? (
+              <div className="flex justify-center py-16">
+                <Loader2 size={28} className="animate-spin text-brand-600" />
+              </div>
+            ) : appointments.length === 0 ? (
+              <div className="card p-8 text-center">
+                <p className="text-slate-500">No appointments available for queue tracking.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {appointments
+                  .filter((appt) => ['SCHEDULED', 'IN_QUEUE', 'IN_PROGRESS'].includes(appt.status))
+                  .map((appt) => (
+                    <div key={appt.id} className="card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="font-semibold text-slate-900">{appt.professional.displayName}</p>
+                        <p className="text-sm text-slate-500">{appt.service.name}</p>
+                        <p className="text-xs text-slate-400 mt-1">{formatDateTime(appt.startTime)}</p>
+                      </div>
+                      <Link
+                        href={`/queue?professional=${appt.professional.id}&appointment=${appt.id}&name=${encodeURIComponent(appt.professional.displayName)}`}
+                        className="btn-primary text-xs px-3 py-2"
+                      >
+                        Open Queue
+                      </Link>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        </main>
       </>
     )
   }

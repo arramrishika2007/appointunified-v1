@@ -67,10 +67,10 @@ public class Appointment {
     @Column(name = "workflow_instance_id")
     private UUID workflowInstanceId;
 
-    @Column(name = "client_lat", precision = 10, scale = 7)
+    @Column(name = "client_lat")
     private Double clientLat;
 
-    @Column(name = "client_lon", precision = 10, scale = 7)
+    @Column(name = "client_lon")
     private Double clientLon;
 
     @Column(name = "distance_meters")
