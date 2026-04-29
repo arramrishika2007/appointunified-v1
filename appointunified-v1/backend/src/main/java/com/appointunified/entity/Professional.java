@@ -28,9 +28,8 @@ public class Professional {
     private String displayName;
 
     @Enumerated(EnumType.STRING)
-    @JdbcType(PostgreSQLEnumJdbcType.class)
-    @Column(nullable = false, columnDefinition = "sector")
-    private Sector sector;
+    @Column(nullable = false)
+private Sector sector;
 
     @Column(length = 255)
     private String specialty;
@@ -41,10 +40,10 @@ public class Professional {
     @Column(name = "license_hash")
     private String licenseHash;
 
+    
     @Enumerated(EnumType.STRING)
-    @JdbcType(PostgreSQLEnumJdbcType.class)
-    @Column(name = "verification_status", nullable = false, columnDefinition = "verification_status")
-    private VerificationStatus verificationStatus = VerificationStatus.PENDING;
+@Column(name = "verification_status", nullable = false)
+private VerificationStatus verificationStatus = VerificationStatus.PENDING;
 
     @Column(name = "rating_avg", precision = 3, scale = 2)
     private BigDecimal ratingAvg = BigDecimal.ZERO;
@@ -110,8 +109,7 @@ public class Professional {
     // ────────────────────────────────────────────────────────────────────────
 
     @Enumerated(EnumType.STRING)
-    @JdbcType(PostgreSQLEnumJdbcType.class)
-    @Column(name = "badge_tier", nullable = false, columnDefinition = "badge_tier")
+    @Column(name = "badge_tier", nullable = false)
     private BadgeTier badgeTier = BadgeTier.NONE;
 
     @Column(name = "badge_awarded_at")

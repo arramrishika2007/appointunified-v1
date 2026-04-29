@@ -12,7 +12,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     UserDetailsServiceAutoConfiguration.class
 })
 @EnableAsync
-@EnableScheduling
+//@EnableScheduling
 public class AppointUnifiedApplication {
 
     public static void main(String[] args) {

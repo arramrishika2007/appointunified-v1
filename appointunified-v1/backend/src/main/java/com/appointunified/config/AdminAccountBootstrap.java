@@ -3,6 +3,7 @@ package com.appointunified.config;
 import com.appointunified.entity.User;
 import com.appointunified.enums.UserRole;
 import com.appointunified.repository.UserRepository;
+import com.appointunified.enums.Sector;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -45,6 +46,7 @@ public class AdminAccountBootstrap {
                 .phone(phone)
                 .fullName(fullName)
                 .role(role)
+                .sector(Sector.SERVICES)
                 .build());
 
         user.setEmail(email);

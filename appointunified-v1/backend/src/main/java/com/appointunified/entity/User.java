@@ -28,14 +28,16 @@ public class User {
     private String passwordHash;
 
     @Enumerated(EnumType.STRING)
-    @JdbcType(PostgreSQLEnumJdbcType.class)
-    @Column(nullable = false, columnDefinition = "user_role")
+    //@JdbcType(PostgreSQLEnumJdbcType.class)
+    @Column(nullable = false) 
+    // columnDefinition = "user_role")
     private UserRole role = UserRole.PUBLIC;
 
     @Enumerated(EnumType.STRING)
-    @JdbcType(PostgreSQLEnumJdbcType.class)
-    @Column(columnDefinition = "sector")
-    private Sector sector;
+    //@JdbcType(PostgreSQLEnumJdbcType.class)
+    @Column(nullable = false)
+    //columnDefinition = "sector"
+    private Sector sector = Sector.SERVICES;
 
     @Column(name = "full_name", length = 255)
     private String fullName;

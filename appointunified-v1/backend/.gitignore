@@ -1,0 +1,28 @@
+﻿# Compiled
+build/
+*.class
+*.jar
+*.war
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Gradle
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db

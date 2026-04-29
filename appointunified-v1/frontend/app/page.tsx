@@ -38,7 +38,7 @@ const parallaxProducts = [
     link: "/explore/healthcare",
     thumbnail: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=2000&auto=format&fit=crop", // Doctor reviewing booking
   },
-  
+
   // GOVERNMENT - Booking & Verification
   {
     title: "Official Applications",
@@ -70,7 +70,7 @@ const parallaxProducts = [
   {
     title: "Mechanic Estimates",
     link: "/explore/services",
-    thumbnail: "https://images.unsplash.com/photo-1486262715619-673c246f48a1?q=80&w=2000&auto=format&fit=crop", // Mechanic clipboard talking to user
+    thumbnail: "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?q=80&w=2000&auto=format&fit=crop", // Mechanic clipboard talking to user
   },
   {
     title: "Technician Scheduling",
@@ -94,13 +94,14 @@ const parallaxProducts = [
   },
 ];
 
+
 export default function HomePage() {
   const router = useRouter()
   const [gateRole, setGateRole] = useState<'ADMIN' | 'SUPER_ADMIN' | null>(null)
   const [accessCode, setAccessCode] = useState('')
   const [gateError, setGateError] = useState('')
   const [stats, setStats] = useState<any>(null)
-  
+
   useEffect(() => {
     fetch('http://localhost:8080/public/stats')
       .then(res => res.json())
@@ -180,7 +181,7 @@ export default function HomePage() {
         {/* ─── Bento Box Feature Grid ───────────────── */}
         <section className="pt-20 pb-40 px-6 relative z-10 w-full">
           <div className="max-w-7xl mx-auto w-full">
-            
+
             <div className="text-center mb-16 animate-slide-up">
               <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight text-text-primary mb-5">
                 Not a calendar. <span className="text-accent">An engine.</span>
@@ -191,7 +192,7 @@ export default function HomePage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[340px]">
-              
+
               {/* Bento 1: Adaptive Flow (Spans 2 columns on desktop) */}
               <div className="glass-card md:col-span-2 p-8 relative overflow-hidden group hover:-translate-y-2 transition-all duration-300">
                 <div className="absolute top-0 right-[-100px] w-[400px] h-[400px] bg-accent-glow/60 rounded-full blur-3xl group-hover:bg-accent-glow transition-colors pointer-events-none" />
@@ -203,7 +204,7 @@ export default function HomePage() {
                   <p className="text-base text-text-secondary font-medium max-w-sm flex-none">
                     When the clinic runs late, your phone pings. We constantly recalculate ETAs so you never sit in a crowded waiting room again.
                   </p>
-                  
+
                   {/* Visual mockup inside bento */}
                   <div className="mt-8 bg-white/70 backdrop-blur-md p-5 rounded-2xl border border-white flex items-center justify-between shadow-soft max-w-md">
                     <div className="flex flex-col gap-1">
@@ -254,7 +255,7 @@ export default function HomePage() {
               {/* Bento 4: Sectors (Spans 2 cols) */}
               <div className="glass-card md:col-span-2 p-8 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-2 transition-all duration-300">
                 <div className="absolute inset-0 bg-gradient-to-r from-accent to-accent-light opacity-[0.03] pointer-events-none" />
-                
+
                 <div className="relative z-10 h-full flex flex-col justify-between">
                   <div>
                     <h3 className="text-2xl font-bold text-text-primary mb-3">One abstract layer. Every Sector.</h3>
@@ -267,11 +268,11 @@ export default function HomePage() {
 
             </div>
           </div>
-          
+
           <div className="max-w-7xl mx-auto w-full px-0 sm:px-0 mt-8">
             <GlobeFeatureSection stats={stats} />
           </div>
-          
+
         </section>
 
         {/* ─── Modem Animated Footer ─────────────────────────── */}
@@ -284,8 +285,8 @@ export default function HomePage() {
         />
 
         <div className="w-full flex justify-center text-[10px] sm:text-xs font-bold text-text-muted tracking-widest uppercase gap-2 sm:gap-4 pb-4">
-            <button onClick={() => openGate('ADMIN')} className="hover:text-text-primary transition-colors border-r border-border pr-2 sm:pr-4">Admin Console</button>
-            <button onClick={() => openGate('SUPER_ADMIN')} className="hover:text-red-400 text-text-muted transition-colors">Super Access</button>
+          <button onClick={() => openGate('ADMIN')} className="hover:text-text-primary transition-colors border-r border-border pr-2 sm:pr-4">Admin Console</button>
+          <button onClick={() => openGate('SUPER_ADMIN')} className="hover:text-red-400 text-text-muted transition-colors">Super Access</button>
         </div>
 
       </main>
