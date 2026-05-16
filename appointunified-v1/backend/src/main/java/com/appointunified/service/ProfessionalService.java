@@ -397,8 +397,10 @@ OffsetDateTime dayEnd = OffsetDateTime.of(date, schedule.getEndTime(), zone);
 
         // Get booked slots for this day
         List<com.appointunified.entity.Appointment> bookedSlots =
-                appointmentRepository.findBookedSlots(professionalId, dayStart, dayEnd);
-
+        appointmentRepository.findBookedSlots(professionalId, dayStart, dayEnd,
+            List.of(com.appointunified.enums.AppointmentStatus.CANCELLED, 
+                    com.appointunified.enums.AppointmentStatus.NO_SHOW, 
+                    com.appointunified.enums.AppointmentStatus.EXPIRED));
         // Generate all possible slots
         List<AppointmentResponse.AvailableSlot> slots = new ArrayList<>();
         OffsetDateTime cursor = dayStart;

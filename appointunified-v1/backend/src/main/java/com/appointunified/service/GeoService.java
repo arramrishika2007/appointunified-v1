@@ -20,7 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
-
+import com.appointunified.enums.AppointmentStatus;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
@@ -82,7 +82,8 @@ public class GeoService {
         OffsetDateTime from = OffsetDateTime.of(date, java.time.LocalTime.MIN, ZoneOffset.UTC);
         OffsetDateTime to = OffsetDateTime.of(date, java.time.LocalTime.MAX, ZoneOffset.UTC);
 
-        List<Appointment> all = appointmentRepository.findBookedSlots(professional.getId(), from, to);
+        List<Appointment> all = appointmentRepository.findBookedSlots(professional.getId(), from, to,
+    List.of(AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW, AppointmentStatus.EXPIRED));
         List<Appointment> offline = all.stream()
                 .filter(a -> !a.isVirtual() && a.getClientLat() != null && a.getClientLon() != null)
                 .sorted(Comparator.comparing(Appointment::getStartTime))

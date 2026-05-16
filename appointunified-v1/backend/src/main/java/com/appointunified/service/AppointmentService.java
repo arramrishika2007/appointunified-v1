@@ -75,7 +75,8 @@ public class AppointmentService {
         OffsetDateTime endTime = startTime.plusMinutes(service.getDurationMinutes());
 
         // Conflict detection
-        if (appointmentRepository.hasConflict(professional.getId(), startTime, endTime)) {
+        if (appointmentRepository.hasConflict(professional.getId(), startTime, endTime,
+    List.of(AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW, AppointmentStatus.EXPIRED))) {
             throw AppException.conflict("This time slot is no longer available. Please select another.");
         }
 
@@ -171,7 +172,8 @@ public class AppointmentService {
         OffsetDateTime startTime = request.getStartTime();
         OffsetDateTime endTime = startTime.plusMinutes(service.getDurationMinutes());
 
-        if (appointmentRepository.hasConflict(professional.getId(), startTime, endTime)) {
+        if (appointmentRepository.hasConflict(professional.getId(), startTime, endTime,
+    List.of(AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW, AppointmentStatus.EXPIRED))) {
             throw AppException.conflict("This time slot is no longer available. Please select another.");
         }
 
@@ -263,7 +265,8 @@ public class AppointmentService {
         OffsetDateTime newStart = request.getNewStartTime();
         OffsetDateTime newEnd = newStart.plusMinutes(appointment.getService().getDurationMinutes());
 
-        if (appointmentRepository.hasConflict(appointment.getProfessional().getId(), newStart, newEnd)) {
+        if (appointmentRepository.hasConflict(appointment.getProfessional().getId(), newStart, newEnd,
+    List.of(AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW, AppointmentStatus.EXPIRED))) {
             throw AppException.conflict("The requested time slot is not available");
         }
 

@@ -8,7 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -41,18 +40,20 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
        long countByProfessional_IdAndStatus(UUID professionalId, AppointmentStatus status);
 
     @Query("SELECT a FROM Appointment a WHERE a.professional.id = :profId " +
-           "AND a.startTime < :to AND a.endTime > :from " +
-           "AND a.status NOT IN (com.appointunified.enums.AppointmentStatus.CANCELLED, com.appointunified.enums.AppointmentStatus.NO_SHOW, com.appointunified.enums.AppointmentStatus.EXPIRED)")
-    List<Appointment> findBookedSlots(@Param("profId") UUID professionalId,
-                                       @Param("from") OffsetDateTime from,
-                                       @Param("to") OffsetDateTime to);
+       "AND a.startTime < :to AND a.endTime > :from " +
+       "AND a.status NOT IN :excludedStatuses")
+List<Appointment> findBookedSlots(@Param("profId") UUID professionalId,
+                                   @Param("from") OffsetDateTime from,
+                                   @Param("to") OffsetDateTime to,
+                                   @Param("excludedStatuses") List<AppointmentStatus> excludedStatuses);
 
     @Query("SELECT COUNT(a) > 0 FROM Appointment a WHERE a.professional.id = :profId " +
-           "AND a.status NOT IN (com.appointunified.enums.AppointmentStatus.CANCELLED, com.appointunified.enums.AppointmentStatus.NO_SHOW, com.appointunified.enums.AppointmentStatus.EXPIRED) " +
-           "AND a.startTime < :end AND a.endTime > :start")
-    boolean hasConflict(@Param("profId") UUID professionalId,
-                        @Param("start") OffsetDateTime start,
-                        @Param("end") OffsetDateTime end);
+       "AND a.status NOT IN :excludedStatuses " +
+       "AND a.startTime < :end AND a.endTime > :start")
+boolean hasConflict(@Param("profId") UUID professionalId,
+                    @Param("start") OffsetDateTime start,
+                    @Param("end") OffsetDateTime end,
+                    @Param("excludedStatuses") List<AppointmentStatus> excludedStatuses);
 
     List<Appointment> findByStatusAndCreatedAtBefore(AppointmentStatus status, OffsetDateTime time);
 }
