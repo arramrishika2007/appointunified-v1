@@ -25,25 +25,7 @@ public class CacheConfig {
 
     private static final Logger log = LoggerFactory.getLogger(CacheConfig.class);
 
-    @Bean
-    @ConditionalOnExpression("T(org.springframework.util.StringUtils).hasText('${REDIS_URL:}')")
-    public LettuceConnectionFactory redisConnectionFactory(@Value("${REDIS_URL}") String redisUrl) {
-        URI uri = URI.create(redisUrl);
-        RedisStandaloneConfiguration configuration = new RedisStandaloneConfiguration();
-        configuration.setHostName(uri.getHost());
-        configuration.setPort(uri.getPort() > 0 ? uri.getPort() : 6379);
-
-        String userInfo = uri.getUserInfo();
-        if (userInfo != null && userInfo.contains(":")) {
-            String password = userInfo.substring(userInfo.indexOf(':') + 1);
-            configuration.setPassword(RedisPassword.of(password));
-        }
-
-        LettuceConnectionFactory factory = new LettuceConnectionFactory(configuration);
-        factory.setUseSsl("rediss".equalsIgnoreCase(uri.getScheme()));
-        log.info("Redis cache enabled for host {}", uri.getHost());
-        return factory;
-    }
+    
 
     @Bean
     @ConditionalOnExpression("T(org.springframework.util.StringUtils).hasText('${REDIS_URL:}')")
