@@ -41,14 +41,14 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
        long countByProfessional_IdAndStatus(UUID professionalId, AppointmentStatus status);
 
     @Query("SELECT a FROM Appointment a WHERE a.professional.id = :profId " +
-           "AND a.startTime BETWEEN :from AND :to " +
-           "AND a.status NOT IN ('CANCELLED', 'NO_SHOW', 'EXPIRED')")
+           "AND a.startTime < :to AND a.endTime > :from " +
+           "AND a.status NOT IN (com.appointunified.enums.AppointmentStatus.CANCELLED, com.appointunified.enums.AppointmentStatus.NO_SHOW, com.appointunified.enums.AppointmentStatus.EXPIRED)")
     List<Appointment> findBookedSlots(@Param("profId") UUID professionalId,
                                        @Param("from") OffsetDateTime from,
                                        @Param("to") OffsetDateTime to);
 
     @Query("SELECT COUNT(a) > 0 FROM Appointment a WHERE a.professional.id = :profId " +
-           "AND a.status NOT IN ('CANCELLED', 'NO_SHOW', 'EXPIRED') " +
+           "AND a.status NOT IN (com.appointunified.enums.AppointmentStatus.CANCELLED, com.appointunified.enums.AppointmentStatus.NO_SHOW, com.appointunified.enums.AppointmentStatus.EXPIRED) " +
            "AND a.startTime < :end AND a.endTime > :start")
     boolean hasConflict(@Param("profId") UUID professionalId,
                         @Param("start") OffsetDateTime start,

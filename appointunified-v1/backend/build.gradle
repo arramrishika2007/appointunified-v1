@@ -63,3 +63,6 @@ configurations {
 tasks.named('test') {
     useJUnitPlatform()
 }
+bootRun {
+    jvmArgs = ['-Duser.timezone=Asia/Kolkata']
+}

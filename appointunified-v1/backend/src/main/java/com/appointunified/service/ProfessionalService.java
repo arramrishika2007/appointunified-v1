@@ -390,10 +390,10 @@ public class ProfessionalService {
         }
 
         Availability schedule = daySchedule.get();
-        ZoneOffset zone = ZoneOffset.UTC;
+        ZoneOffset zone = ZoneOffset.of("+05:30");
 
         OffsetDateTime dayStart = OffsetDateTime.of(date, schedule.getStartTime(), zone);
-        OffsetDateTime dayEnd = OffsetDateTime.of(date, schedule.getEndTime(), zone);
+OffsetDateTime dayEnd = OffsetDateTime.of(date, schedule.getEndTime(), zone);
 
         // Get booked slots for this day
         List<com.appointunified.entity.Appointment> bookedSlots =
@@ -412,7 +412,7 @@ public class ProfessionalService {
             boolean isBooked = bookedSlots.stream().anyMatch(appt ->
                     appt.getStartTime().isBefore(slotEnd) && appt.getEndTime().isAfter(slotStart));
 
-            boolean isPast = slotStart.isBefore(OffsetDateTime.now().plusMinutes(30));
+                    boolean isPast = slotStart.isBefore(OffsetDateTime.now(java.time.ZoneOffset.of("+05:30")).plusMinutes(30));
 
             AppointmentResponse.AvailableSlot availableSlot = new AppointmentResponse.AvailableSlot();
             availableSlot.setStartTime(slotStart);

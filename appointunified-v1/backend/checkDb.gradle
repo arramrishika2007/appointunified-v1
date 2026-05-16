@@ -1,0 +1,4 @@
+task checkDb(type: JavaExec) {
+    mainClass = "com.appointunified.CheckDbQuery"
+    classpath = sourceSets.main.runtimeClasspath
+}
