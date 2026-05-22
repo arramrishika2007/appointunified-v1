@@ -1,13 +1,13 @@
 'use client'
 
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2, Video } from 'lucide-react'
 import { appointmentsApi } from '@/lib/api'
 
 const TOKEN_PATTERN = /^[A-Za-z0-9]{6,12}$/
 
-export default function JoinMeetingPage() {
+function JoinMeetingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [token, setToken] = useState('')
@@ -16,9 +16,7 @@ export default function JoinMeetingPage() {
 
   useEffect(() => {
     const fromQuery = searchParams.get('token')
-    if (fromQuery) {
-      setToken(fromQuery)
-    }
+    if (fromQuery) setToken(fromQuery)
   }, [searchParams])
 
   const normalizedToken = useMemo(() => token.trim().toUpperCase(), [token])
@@ -26,26 +24,19 @@ export default function JoinMeetingPage() {
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!isValid) {
-      return
-    }
-
+    if (!isValid) return
     setSubmitting(true)
     setError(null)
-
     try {
       const res = await appointmentsApi.validateMeetingToken(normalizedToken)
       const data = res.data?.data
-
       if (data?.canJoin) {
         router.push(`/meeting/${normalizedToken}`)
         return
       }
-
       setError(data?.reason || 'This meeting token is not joinable right now.')
     } catch (err: any) {
-      const message = err?.response?.data?.message || 'Invalid meeting token. Please check and try again.'
-      setError(message)
+      setError(err?.response?.data?.message || 'Invalid meeting token. Please check and try again.')
     } finally {
       setSubmitting(false)
     }
@@ -63,11 +54,8 @@ export default function JoinMeetingPage() {
             <p className="text-sm text-slate-400">Enter your appointment token to join.</p>
           </div>
         </div>
-
         <form onSubmit={onSubmit} className="space-y-3">
-          <label htmlFor="meeting-token" className="text-sm text-slate-300 block">
-            Meeting token
-          </label>
+          <label htmlFor="meeting-token" className="text-sm text-slate-300 block">Meeting token</label>
           <input
             id="meeting-token"
             value={token}
@@ -80,7 +68,6 @@ export default function JoinMeetingPage() {
             <p className="text-xs text-rose-400">Use 6 to 12 letters or numbers.</p>
           )}
           {error && <p className="text-xs text-rose-400">{error}</p>}
-
           <button
             type="submit"
             disabled={!isValid || submitting}
@@ -92,5 +79,13 @@ export default function JoinMeetingPage() {
         </form>
       </section>
     </main>
+  )
+}
+
+export default function JoinMeetingPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <JoinMeetingContent />
+    </Suspense>
   )
 }

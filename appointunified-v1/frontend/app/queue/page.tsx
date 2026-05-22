@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ArrowLeft, Calendar, Loader2, Wifi, WifiOff } from 'lucide-react'
 import Link from 'next/link'
@@ -12,7 +12,7 @@ import { useQueueStatus, useMyQueuePosition } from '@/hooks/useQueue'
 import { QueueBoard, MyPositionWidget, BroadcastBanner } from '@/components/queue/QueueDisplay'
 import { cn, formatDateTime } from '@/lib/utils'
 
-export default function QueueTrackerPage() {
+function QueueTrackerContent() {
   const searchParams = useSearchParams()
   const professionalId  = searchParams.get('professional')
   const appointmentId   = searchParams.get('appointment')
@@ -165,5 +165,12 @@ export default function QueueTrackerPage() {
         </div>
       </main>
     </>
+  )
+}
+export default function QueueTrackerPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <QueueTrackerContent />
+    </Suspense>
   )
 }

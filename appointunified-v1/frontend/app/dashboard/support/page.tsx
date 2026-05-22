@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Bot, Loader2, MessageSquare, Send, Sparkles } from 'lucide-react'
@@ -17,7 +17,7 @@ const QUICK_PROMPTS = [
   'What happens if I need to reschedule?',
 ]
 
-export default function SupportAssistantPage() {
+function SupportAssistantContent() {
   const searchParams = useSearchParams()
   const { isAuthenticated, hasHydrated } = useAuthStore()
   const appointmentId = searchParams.get('appointmentId') ?? undefined
@@ -226,5 +226,12 @@ export default function SupportAssistantPage() {
         </div>
       </main>
     </UserShell>
+  )
+}
+export default function SupportAssistantPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SupportAssistantContent />
+    </Suspense>
   )
 }
