@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
@@ -19,7 +19,7 @@ const schema = z.object({
 })
 type FormData = z.infer<typeof schema>
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const accessRole = searchParams.get('role')
@@ -47,7 +47,6 @@ export default function LoginPage() {
       return
     }
 
-    // Avoid keeping credentials in browser history and server logs.
     const nextParams = new URLSearchParams(searchParams.toString())
     nextParams.delete('identifier')
     nextParams.delete('password')
@@ -90,13 +89,10 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-primary flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Ambient Orbs - Multi-Pastel Theme */}
       <div className="absolute top-[-10%] left-[-5%] w-[500px] h-[500px] rounded-full bg-pastel-purple/30 blur-[130px] pointer-events-none animate-float-slow" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[450px] h-[450px] rounded-full bg-pastel-yellow/30 blur-[120px] pointer-events-none" />
 
       <div className="w-full max-w-sm relative z-10">
-
-        {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-3 mb-6 group">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-accent to-accent-light text-white shadow-soft group-hover:shadow-float transition-all duration-300 group-hover:-translate-y-0.5">
@@ -117,7 +113,6 @@ export default function LoginPage() {
 
         <div className="card p-8 bg-white/70 backdrop-blur-xl border border-white">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-
             <div>
               <label className="label">Phone number or email</label>
               <input
@@ -182,5 +177,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginContent />
+    </Suspense>
   )
 }

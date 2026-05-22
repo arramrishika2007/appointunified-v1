@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { AlertCircle, CheckCircle2, Clock, Loader2, Monitor } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
@@ -21,7 +21,7 @@ declare global {
   }
 }
 
-export default function BookingConfirmPage() {
+function BookingConfirmContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { isAuthenticated, user } = useAuthStore()
@@ -54,10 +54,8 @@ export default function BookingConfirmPage() {
     const loadConfirmation = async () => {
       try {
         setLoading(true)
-
         const appointmentRes = await appointmentsApi.getById(appointmentId)
         const apt = appointmentRes.data.data
-
         const paymentConfigRes = await paymentsApi.getConfig()
         const paymentConfig = paymentConfigRes.data.data
         const paymentConfigured = Boolean(paymentConfig?.configured)
@@ -79,7 +77,6 @@ export default function BookingConfirmPage() {
             if (paymentMsg?.toLowerCase().includes('not configured')) {
               setPaymentUnavailableReason('Online payment is temporarily unavailable on server. You can continue and complete payment later.')
             }
-            // Keep page usable: user can retry from CTA without getting stuck.
           }
         }
 
@@ -104,9 +101,7 @@ export default function BookingConfirmPage() {
   }, [appointmentId])
 
   useEffect(() => {
-    if (!appointmentId || !stripeSessionId || !paymentOrderIdFromQuery) {
-      return
-    }
+    if (!appointmentId || !stripeSessionId || !paymentOrderIdFromQuery) return
 
     const confirmStripeCheckout = async () => {
       try {
@@ -205,13 +200,11 @@ export default function BookingConfirmPage() {
               razorpayPaymentId: response.razorpay_payment_id,
               razorpaySignature: response.razorpay_signature,
             })
-
             toast.success('Payment successful! Your appointment is confirmed.')
             router.push(`/dashboard/bookings?booked=${appointmentId}`)
           } catch (err: unknown) {
             const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Payment verification failed'
             toast.error(msg)
-            console.error('Payment verification error:', err)
           }
         },
         modal: {
@@ -227,7 +220,6 @@ export default function BookingConfirmPage() {
     } catch (err: unknown) {
       const msg = (err as { message?: string })?.message || 'Payment initiation failed'
       toast.error(msg)
-      console.error('Payment error:', err)
     } finally {
       setPaymentProcessing(false)
     }
@@ -318,7 +310,6 @@ export default function BookingConfirmPage() {
             {paymentInfo && (
               <div className="bg-blue-50 rounded-xl p-6 mb-8">
                 <h3 className="font-semibold text-slate-900 mb-4">Payment Summary</h3>
-
                 <div className="space-y-3 mb-4 pb-4 border-b border-blue-200">
                   <div className="flex justify-between items-center">
                     <span className="text-slate-600">Service Total</span>
@@ -329,7 +320,6 @@ export default function BookingConfirmPage() {
                     <span className="font-bold text-lg text-brand-600">{formatCurrency(depositAmount)}</span>
                   </div>
                 </div>
-
                 <div className="flex items-start gap-2 bg-blue-100 border border-blue-200 rounded-lg p-3">
                   <AlertCircle size={16} className="text-blue-600 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-blue-700">Pay the deposit now to secure your booking.</p>
@@ -347,10 +337,7 @@ export default function BookingConfirmPage() {
 
             <button onClick={handlePrimaryAction} disabled={paymentProcessing} className="btn-primary w-full py-4 text-lg font-semibold">
               {paymentProcessing ? (
-                <>
-                  <Loader2 size={20} className="animate-spin" />
-                  Processing Payment...
-                </>
+                <><Loader2 size={20} className="animate-spin" /> Processing Payment...</>
               ) : (
                 <>
                   {paymentInfo
@@ -375,5 +362,13 @@ export default function BookingConfirmPage() {
         </div>
       </main>
     </>
+  )
+}
+
+export default function BookingConfirmPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <BookingConfirmContent />
+    </Suspense>
   )
 }

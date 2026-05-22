@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -19,7 +19,7 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-export default function FileComplaintPage() {
+function FileComplaintContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const professionalId = searchParams.get('professional')
@@ -52,7 +52,7 @@ export default function FileComplaintPage() {
     } catch (err: unknown) {
       toast.error(
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-          'Failed to file complaint. Please try again.'
+        'Failed to file complaint. Please try again.'
       )
     }
   }
@@ -120,9 +120,7 @@ export default function FileComplaintPage() {
 
               <button type="submit" disabled={isSubmitting || !selectedCategory} className="btn-danger w-full py-3">
                 {isSubmitting ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" /> Submitting…
-                  </>
+                  <><Loader2 size={16} className="animate-spin" /> Submitting…</>
                 ) : (
                   <span className="inline-flex items-center gap-2">
                     <BadgeAlert size={16} /> Submit Complaint
@@ -134,5 +132,13 @@ export default function FileComplaintPage() {
         </div>
       </main>
     </>
+  )
+}
+
+export default function FileComplaintPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <FileComplaintContent />
+    </Suspense>
   )
 }

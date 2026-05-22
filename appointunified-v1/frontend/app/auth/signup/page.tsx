@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
@@ -15,24 +15,24 @@ import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 const schema = z.object({
-  fullName:  z.string().min(2, 'Name must be at least 2 characters'),
-  phone:     z.string().regex(/^\+[1-9]\d{6,14}$/, 'Enter phone in format: +919876543210'),
-  email:     z.string().email('Invalid email').optional().or(z.literal('')),
-  password:  z.string().min(6, 'At least 6 characters required'),
-  role:      z.enum(['PUBLIC', 'PROFESSIONAL']),
-  city:      z.string().optional(),
-  address:   z.string().optional(),
-  latitude:  z.number().optional(),
+  fullName: z.string().min(2, 'Name must be at least 2 characters'),
+  phone: z.string().regex(/^\+[1-9]\d{6,14}$/, 'Enter phone in format: +919876543210'),
+  email: z.string().email('Invalid email').optional().or(z.literal('')),
+  password: z.string().min(6, 'At least 6 characters required'),
+  role: z.enum(['PUBLIC', 'PROFESSIONAL']),
+  city: z.string().optional(),
+  address: z.string().optional(),
+  latitude: z.number().optional(),
   longitude: z.number().optional(),
 })
 type FormData = z.infer<typeof schema>
 
 const ROLE_OPTIONS = [
-  { value: 'PUBLIC',       icon: <Calendar size={18} className="text-accent" />,       label: 'I want to book',       desc: 'Search and book verified professionals' },
-  { value: 'PROFESSIONAL', icon: <Stethoscope size={18} className="text-accent-mint" />, label: 'I am a professional',  desc: 'Get listed and manage your schedule' },
+  { value: 'PUBLIC', icon: <Calendar size={18} className="text-accent" />, label: 'I want to book', desc: 'Search and book verified professionals' },
+  { value: 'PROFESSIONAL', icon: <Stethoscope size={18} className="text-accent-mint" />, label: 'I am a professional', desc: 'Get listed and manage your schedule' },
 ]
 
-export default function SignupPage() {
+function SignupContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { login } = useAuthStore()
@@ -82,12 +82,10 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen bg-primary flex items-center justify-center p-4 relative overflow-hidden py-12">
-      {/* Ambient Orbs - Multi-Pastel Theme */}
       <div className="absolute top-[-5%] right-[-10%] w-[600px] h-[600px] rounded-full bg-pastel-pink/30 blur-[140px] pointer-events-none animate-float-slow" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-pastel-yellow/30 blur-[120px] pointer-events-none" />
 
       <div className="w-full max-w-lg relative z-10">
-
         <div className="text-center mb-10">
           <Link href="/" className="inline-flex items-center gap-3 mb-6 group">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-accent to-accent-light text-white shadow-soft group-hover:shadow-float transition-all duration-300 group-hover:-translate-y-0.5">
@@ -103,8 +101,6 @@ export default function SignupPage() {
 
         <div className="card p-8 bg-white/70 backdrop-blur-xl border border-white">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-
-            {/* Role selection */}
             <div>
               <label className="label">I am signing up as…</label>
               <div className="grid grid-cols-2 gap-3">
@@ -186,7 +182,7 @@ export default function SignupPage() {
               <label className="label mb-2 flex items-center gap-1.5 text-text-primary">
                 <MapPin size={16} className="text-accent" /> Set Base Location <span className="text-text-muted font-normal ml-1">(optional)</span>
               </label>
-              <LocationAutocomplete 
+              <LocationAutocomplete
                 onLocationSelect={(loc) => setLocationState(loc)}
                 placeholder="Search city or address..."
               />
@@ -200,7 +196,7 @@ export default function SignupPage() {
             <button type="submit" disabled={isSubmitting} className="btn-primary w-full py-3.5 mt-2">
               {isSubmitting
                 ? <Loader2 size={20} className="animate-spin" />
-                : <><span className="text-base tracking-wide">Create account</span> <ChevronRight size={20} strokeWidth={2.5}/></>
+                : <><span className="text-base tracking-wide">Create account</span> <ChevronRight size={20} strokeWidth={2.5} /></>
               }
             </button>
           </form>
@@ -218,5 +214,13 @@ export default function SignupPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SignupContent />
+    </Suspense>
   )
 }
