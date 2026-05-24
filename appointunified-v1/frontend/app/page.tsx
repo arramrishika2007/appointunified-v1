@@ -103,7 +103,7 @@ export default function HomePage() {
   const [stats, setStats] = useState<any>(null)
 
   useEffect(() => {
-    fetch('http://localhost:8080/public/stats')
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/public/stats`)
       .then(res => res.json())
       .then(data => {
         if (data.success) {
