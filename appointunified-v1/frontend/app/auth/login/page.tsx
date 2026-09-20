@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
@@ -19,7 +19,7 @@ const schema = z.object({
 })
 type FormData = z.infer<typeof schema>
 
-function LoginContent() {
+export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const accessRole = searchParams.get('role')
@@ -42,11 +42,7 @@ function LoginContent() {
     if (prefillPassword) {
       setValue('password', prefillPassword, { shouldValidate: true })
     }
-
-    if (!prefillIdentifier && !prefillPassword) {
-      return
-    }
-
+    if (!prefillIdentifier && !prefillPassword) return
     const nextParams = new URLSearchParams(searchParams.toString())
     nextParams.delete('identifier')
     nextParams.delete('password')
@@ -58,20 +54,16 @@ function LoginContent() {
     try {
       const res = await authApi.login(data)
       const tokenPair = res.data.data as TokenPair
-
       if (accessRole === 'SUPER_ADMIN' && tokenPair.user.role !== 'SUPER_ADMIN') {
         toast.error('This account is not a super admin account.')
         return
       }
-
       if (accessRole === 'ADMIN' && !['ADMIN', 'SUPER_ADMIN'].includes(tokenPair.user.role)) {
         toast.error('This account does not have admin access.')
         return
       }
-
       login(tokenPair)
       toast.success(`Welcome back, ${tokenPair.user.fullName.split(' ')[0]}!`)
-
       if (tokenPair.user.role === 'PROFESSIONAL') {
         router.push('/professional/dashboard')
       } else if (tokenPair.user.role === 'SUPER_ADMIN') {
@@ -91,7 +83,6 @@ function LoginContent() {
     <div className="min-h-screen bg-primary flex items-center justify-center p-4 relative overflow-hidden">
       <div className="absolute top-[-10%] left-[-5%] w-[500px] h-[500px] rounded-full bg-pastel-purple/30 blur-[130px] pointer-events-none animate-float-slow" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[450px] h-[450px] rounded-full bg-pastel-yellow/30 blur-[120px] pointer-events-none" />
-
       <div className="w-full max-w-sm relative z-10">
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-3 mb-6 group">
@@ -110,7 +101,6 @@ function LoginContent() {
             </p>
           )}
         </div>
-
         <div className="card p-8 bg-white/70 backdrop-blur-xl border border-white">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div>
@@ -123,7 +113,6 @@ function LoginContent() {
               />
               {errors.identifier && <p className="error-text">{errors.identifier.message}</p>}
             </div>
-
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="label mb-0">Password</label>
@@ -149,19 +138,16 @@ function LoginContent() {
               </div>
               {errors.password && <p className="error-text">{errors.password.message}</p>}
             </div>
-
             <button type="submit" disabled={isSubmitting} className="btn-primary w-full py-3.5">
               {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : 'Sign in'}
             </button>
           </form>
-
           <div className="mt-8 text-center text-sm font-medium text-text-secondary">
             Don&apos;t have an account?{' '}
             <Link href="/auth/signup" className="text-accent font-bold hover:text-accent-light transition-colors">
               Sign up free
             </Link>
           </div>
-
           <div className="mt-6 pt-6 border-t border-border text-center text-sm font-medium text-text-secondary">
             Or use{' '}
             <Link href="/auth/phone" className="text-text-primary font-bold hover:text-accent transition-colors">
@@ -169,7 +155,6 @@ function LoginContent() {
             </Link>
           </div>
         </div>
-
         <p className="text-center text-xs font-medium text-text-muted mt-8 uppercase tracking-widest">
           <Link href="/terms" className="hover:text-text-primary transition-colors">Terms</Link>
           <span className="mx-3">•</span>
@@ -177,13 +162,5 @@ function LoginContent() {
         </p>
       </div>
     </div>
-  )
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <LoginContent />
-    </Suspense>
   )
 }
