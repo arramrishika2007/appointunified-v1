@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -19,7 +19,7 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-function FileComplaintContent() {
+export default function FileComplaintPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const professionalId = searchParams.get('professional')
@@ -132,13 +132,5 @@ function FileComplaintContent() {
         </div>
       </main>
     </>
-  )
-}
-
-export default function FileComplaintPage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <FileComplaintContent />
-    </Suspense>
   )
 }
