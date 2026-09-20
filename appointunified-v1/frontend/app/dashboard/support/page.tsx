@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState, Suspense } from 'react'
+import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Bot, Loader2, MessageSquare, Send, Sparkles } from 'lucide-react'
@@ -17,7 +17,7 @@ const QUICK_PROMPTS = [
   'What happens if I need to reschedule?',
 ]
 
-function SupportAssistantContent() {
+export default function SupportAssistantPage() {
   const searchParams = useSearchParams()
   const { isAuthenticated, hasHydrated } = useAuthStore()
   const appointmentId = searchParams.get('appointmentId') ?? undefined
@@ -104,9 +104,7 @@ function SupportAssistantContent() {
   const handleQuestionKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
-      if (!loading) {
-        void sendQuestion()
-      }
+      if (!loading) void sendQuestion()
     }
   }
 
@@ -125,7 +123,6 @@ function SupportAssistantContent() {
                   This page connects to the live system-chat endpoint and can answer context-aware questions about the current booking or general product rules.
                 </p>
               </div>
-
               <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
                 <p className="text-xs font-semibold uppercase tracking-wide text-white/60">Context</p>
                 <p className="mt-2 text-lg font-semibold">{contextLabel}</p>
@@ -156,13 +153,7 @@ function SupportAssistantContent() {
 
                 <div className="flex flex-wrap gap-2">
                   {QUICK_PROMPTS.map((prompt) => (
-                    <button
-                      key={prompt}
-                      type="button"
-                      onClick={() => void sendQuestion(prompt)}
-                      className="btn-ghost text-xs px-3 py-2"
-                      disabled={loading}
-                    >
+                    <button key={prompt} type="button" onClick={() => void sendQuestion(prompt)} className="btn-ghost text-xs px-3 py-2" disabled={loading}>
                       {prompt}
                     </button>
                   ))}
@@ -226,12 +217,5 @@ function SupportAssistantContent() {
         </div>
       </main>
     </UserShell>
-  )
-}
-export default function SupportAssistantPage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <SupportAssistantContent />
-    </Suspense>
   )
 }
