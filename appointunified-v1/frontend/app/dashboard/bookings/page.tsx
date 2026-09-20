@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Calendar, Check, Clock, Copy, Download, ExternalLink, GitBranch, Loader2, MapPin, Monitor, RefreshCw, Trash2, Video, X } from 'lucide-react'
@@ -28,7 +28,7 @@ const DEPOSIT_CONFIRMABLE_STATUSES: AppointmentSummary['status'][] = [
   'PENDING_DEPOSIT', 'DEPOSIT_PAID', 'CONFIRMED', 'SCHEDULED',
 ]
 
-function MyBookingsContent() {
+export default function MyBookingsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { isAuthenticated } = useAuthStore()
@@ -308,14 +308,6 @@ function MyBookingsContent() {
         </div>
       </main>
     </UserShell>
-  )
-}
-
-export default function MyBookingsPage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <MyBookingsContent />
-    </Suspense>
   )
 }
 
